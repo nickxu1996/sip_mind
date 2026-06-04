@@ -25,6 +25,7 @@ const defaultCategories: InventoryCategory[] = [
 ];
 const authStorageKey = 'sip_mind_user';
 const deviceStorageKey = 'sip_mind_device_id';
+const guestInventoryStoragePrefix = 'sip_mind_guest_inventory';
 const recommendationsStoragePrefix = 'sip_mind_recommendations';
 const foodHintStoragePrefix = 'sip_mind_food_hint';
 const preferencesStoragePrefix = 'sip_mind_preferences';
@@ -118,11 +119,32 @@ function readOrCreateDeviceId() {
   return id;
 }
 
-function getPreferencesStorageKey(userId: number) {
+function getGuestInventoryStorageKey(deviceId: string) {
+  return `${guestInventoryStoragePrefix}:${deviceId}`;
+}
+
+function readStoredGuestInventory(deviceId: string): InventoryItem[] {
+  const saved = localStorage.getItem(getGuestInventoryStorageKey(deviceId));
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+function storeGuestInventory(deviceId: string, inventory: InventoryItem[]) {
+  localStorage.setItem(getGuestInventoryStorageKey(deviceId), JSON.stringify(inventory));
+}
+
+function getPreferencesStorageKey(userId: number | string) {
   return `${preferencesStoragePrefix}:${userId}`;
 }
 
-function readStoredPreferences(userId: number) {
+function readStoredPreferences(userId: number | string) {
   const saved = localStorage.getItem(getPreferencesStorageKey(userId));
   if (!saved) return null;
 
@@ -135,7 +157,7 @@ function readStoredPreferences(userId: number) {
   }
 }
 
-function storePreferences(userId: number, preferences: unknown) {
+function storePreferences(userId: number | string, preferences: unknown) {
   localStorage.setItem(getPreferencesStorageKey(userId), JSON.stringify(preferences));
 }
 
@@ -238,6 +260,7 @@ export function App() {
     alcohol: 'any' as string, caffeine: 'any' as string, temperature: 'any' as string, calories: 'any' as string,
     frugalMode: false, independentDrinks: false, recommendationCount: 2, requiredIngredientIds: [] as string[]
   });
+  const [preferencesStorageReady, setPreferencesStorageReady] = useState(false);
   const [inventoryName, setInventoryName] = useState('');
   const [inventoryAmount, setInventoryAmount] = useState('');
   const [shareFoodLibraryPublicly, setShareFoodLibraryPublicly] = useState(false);
@@ -430,6 +453,7 @@ export function App() {
   }, [showSettings, user?.role]);
 
   useEffect(() => {
+    setPreferencesStorageReady(false);
     if (user) {
       localStorage.setItem(authStorageKey, JSON.stringify({ user, token: authToken }));
       setRecommendations(readStoredRecommendations(user.id));
@@ -440,16 +464,19 @@ export function App() {
       localStorage.removeItem(authStorageKey);
       setAuthToken('');
       setFavorites([]); setRecommendations([]); setLeftoverRecommendations([]); setSelectedRecommendationIds([]);
+      setInventory(readStoredGuestInventory(deviceId));
+      const savedPreferences = readStoredPreferences('guest');
+      if (savedPreferences) setPreferences(prev => ({ ...prev, ...savedPreferences }));
       fetchPublicFoodLibrary();
     }
-  }, [user, authToken]);
+    setPreferencesStorageReady(true);
+  }, [user, authToken, deviceId]);
 
   useEffect(() => {
-    if (user) {
-      const { requiredIngredientIds, ...persistedPreferences } = preferences;
-      storePreferences(user.id, persistedPreferences);
-    }
-  }, [user, preferences]);
+    if (!preferencesStorageReady) return;
+    const persistedPreferences = user ? { ...preferences, requiredIngredientIds: [] } : preferences;
+    storePreferences(user?.id ?? 'guest', persistedPreferences);
+  }, [user, preferences, preferencesStorageReady]);
 
   async function fetchUserData() {
     if (!user) return;
@@ -729,9 +756,18 @@ export function App() {
   }
 
   async function saveInventory(next: InventoryItem[]) {
-    if (!user) return;
+    if (!user) {
+      storeGuestInventory(deviceId, next);
+      return;
+    }
     await fetch('/api/user/inventory', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ items: next })});
     fetchUserData();
+  }
+
+  function clearInventory() {
+    setInventory([]);
+    setPreferences(prev => ({ ...prev, requiredIngredientIds: [] }));
+    saveInventory([]);
   }
 
   function addFoodLibraryItem(item: FoodLibraryItem) {
@@ -1125,7 +1161,7 @@ export function App() {
               <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
             <div className="inventory-heading-side">
-              <button className="text-button" onClick={() => {setInventory([]); if(user) fetch('/api/user/inventory', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ items: [] })});}}>{t.clear}</button>
+              <button className="text-button" onClick={clearInventory}>{t.clear}</button>
             </div>
           </div>
           <div className="inventory-library-layout">
