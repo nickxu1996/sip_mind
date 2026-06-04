@@ -989,7 +989,7 @@ export function App() {
           <div className="brand-title-line">
             <div className="brand-name-stack">
               <h1>Sip Mind</h1>
-              <strong>\u676f\u4e2d\u7075\u611f</strong>
+              <strong>{'\u676f\u4e2d\u7075\u611f'}</strong>
             </div>
             <p>{introText}</p>
           </div>

@@ -1163,9 +1163,28 @@ button { cursor: pointer; }
 
 @media (max-width: 700px) {
   .content-grid { grid-template-columns: 1fr; }
-  .inventory-strip .section-heading { grid-template-columns: 1fr; gap: 6px; }
-  .inventory-heading-side { right: 0; justify-content: flex-end; }
-  .guest-limit-note { position: static; transform: none; margin-left: 10px; }
+  .inventory-strip .section-heading {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 7px;
+    min-height: 0;
+  }
+  .inventory-heading-main {
+    display: grid;
+    gap: 4px;
+  }
+  .inventory-heading-side {
+    position: static;
+    transform: none;
+    height: auto;
+    justify-content: flex-start;
+  }
+  .guest-limit-note {
+    position: static;
+    transform: none;
+    margin-left: 0;
+    white-space: normal;
+  }
   .inventory-library-layout { grid-template-columns: 1fr; }
   .history-panel { grid-column: span 1; }
   .top-bar { flex-direction: column; align-items: flex-start; }
