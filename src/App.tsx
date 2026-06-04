@@ -103,10 +103,17 @@ function storeRecommendations(userId: number, recommendations: unknown[]) {
   localStorage.setItem(getRecommendationsStorageKey(userId), JSON.stringify(recommendations));
 }
 
+function createClientId(prefix = 'id') {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function readOrCreateDeviceId() {
   const existing = localStorage.getItem(deviceStorageKey);
   if (existing) return existing;
-  const id = crypto.randomUUID();
+  const id = createClientId('device');
   localStorage.setItem(deviceStorageKey, id);
   return id;
 }
@@ -636,7 +643,7 @@ export function App() {
     const amount = match ? parseFloat(match[1]) : undefined;
     const unit = match ? match[2].trim() || 'ml' : 'ml';
     
-    const next = [...inventory, { id: crypto.randomUUID(), name: inventoryName, amount, unit, category: 'uncategorized', sharePublicFoodLibrary: shareFoodLibraryPublicly }];
+    const next = [...inventory, { id: createClientId('inventory'), name: inventoryName, amount, unit, category: 'uncategorized', sharePublicFoodLibrary: shareFoodLibraryPublicly }];
     setInventory(next); setInventoryName(''); setInventoryAmount('');
     saveInventory(next);
   }
@@ -730,7 +737,7 @@ export function App() {
   function addFoodLibraryItem(item: FoodLibraryItem) {
     const exists = inventory.some(inv => inv.name.trim().toLocaleLowerCase() === item.name.trim().toLocaleLowerCase() && getItemCategory(inv) === item.category);
     if (exists) return;
-    const next = [...inventory, { id: crypto.randomUUID(), name: item.name, unit: 'ml', category: item.category }];
+    const next = [...inventory, { id: createClientId('inventory'), name: item.name, unit: 'ml', category: item.category }];
     setInventory(next);
     saveInventory(next);
   }
