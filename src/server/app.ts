@@ -31,8 +31,15 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
   const app = express();
   const captchaChallenges = new Map<string, CaptchaChallenge>();
 
-  app.use(cors());
-  app.use(express.json());
+  app.use((_request, response, next) => {
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Frame-Options', 'DENY');
+    response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
+  app.use(cors({ origin: createCorsOriginValidator(env) }));
+  app.use(express.json({ limit: env.JSON_BODY_LIMIT || '64kb' }));
 
   app.get('/api/health', (_request, response) => {
     response.json({ ok: true });
@@ -424,4 +431,22 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
   });
 
   return app;
+}
+
+function createCorsOriginValidator(env: Record<string, string | undefined>) {
+  const configuredOrigins = [
+    env.PUBLIC_APP_URL,
+    env.CORS_ORIGIN,
+    'http://127.0.0.1:5173',
+    'http://localhost:5173'
+  ]
+    .flatMap(value => String(value ?? '').split(','))
+    .map(value => value.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  const allowed = new Set(configuredOrigins);
+
+  return (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowed.has(origin.replace(/\/$/, ''))) return callback(null, true);
+    return callback(null, false);
+  };
 }
