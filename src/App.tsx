@@ -1440,7 +1440,7 @@ export function App() {
                    <section className="recipe-section">
                      <h4>{uiLabels.steps}</h4>
                      <ol>
-                       {(rec.steps ?? []).map((step: string, index: number) => <li key={index}>{step}</li>)}
+                       {(rec.steps ?? []).map((step: string, index: number) => <li key={index}>{formatStepText(step)}</li>)}
                      </ol>
                    </section>
                    <section className={`recipe-section ${(rec.remainingIngredients ?? []).length === 0 ? 'no-leftovers-section' : ''} ${flashingNoLeftoverId === getRecommendationId('main', rec, i) ? 'flash' : ''}`}>
@@ -1486,7 +1486,7 @@ export function App() {
                     )}
                     <section className="recipe-section"><h4>{uiLabels.intro}</h4><p>{rec.reason}</p></section>
                     <section className="recipe-section"><h4>{uiLabels.ingredients}</h4><ul>{(rec.ingredients ?? []).map((ingredient: string, index: number) => <li key={index}>{ingredient}</li>)}</ul></section>
-                    <section className="recipe-section"><h4>{uiLabels.steps}</h4><ol>{(rec.steps ?? []).map((step: string, index: number) => <li key={index}>{step}</li>)}</ol></section>
+                    <section className="recipe-section"><h4>{uiLabels.steps}</h4><ol>{(rec.steps ?? []).map((step: string, index: number) => <li key={index}>{formatStepText(step)}</li>)}</ol></section>
                     <section className="recipe-section">
                       <h4>{uiLabels.remaining}</h4>
                       {(rec.remainingIngredients ?? []).length > 0 ? <ul>{rec.remainingIngredients.map((ingredient: string, index: number) => <li key={index}>{ingredient}</li>)}</ul> : <p>{uiLabels.noMeasurableLeftovers}</p>}
@@ -1591,6 +1591,13 @@ function normalizeDisplayScore(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   const match = String(value ?? '').match(/\d+(\.\d+)?/);
   return match ? Number(match[0]) : 0;
+}
+
+function formatStepText(step: string) {
+  return String(step)
+    .trim()
+    .replace(/^(?:步骤\s*)?\d+[\s.。)、:：-]+/i, '')
+    .trim();
 }
 
 function formatRecipeVolume(value: unknown) {

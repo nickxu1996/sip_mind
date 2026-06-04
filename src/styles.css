@@ -658,7 +658,7 @@ button { cursor: pointer; }
 
 .dimension-scores {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   gap: 4px 6px;
 }
@@ -670,6 +670,10 @@ button { cursor: pointer; }
   line-height: 1.25;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.dimension-scores span:nth-child(5):last-child {
+  grid-column: 2 / 4;
 }
 
 .select-recipe {
