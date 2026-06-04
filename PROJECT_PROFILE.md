@@ -132,6 +132,20 @@ Use:
 
 - `upload_github.bat` for GitHub upload.
 - `pull_to_vultr.bat` for GitHub upload plus remote pull/build/restart.
+- `backup_vultr.bat` to create a remote `.env` and SQLite backup under `/opt/sip_mind_backups`.
+
+## Operations Notes
+
+Useful server commands:
+
+```bash
+systemctl status sip-mind
+journalctl -u sip-mind -n 80 --no-pager
+curl -fsS http://127.0.0.1:8787/api/health
+nginx -t
+```
+
+Rollback can be done by reverting the Git commit locally and running `pull_to_vultr.bat`, or by checking out a known-good commit on the server, rebuilding, and restarting `sip-mind`.
 
 ## Public Readiness Checklist
 
@@ -144,10 +158,11 @@ Use:
 - CORS is configurable through `PUBLIC_APP_URL` and `CORS_ORIGIN`.
 - JSON request body size is limited.
 - Basic security headers are set by the API.
+- Backup helper exists for `.env` and SQLite data.
 
 ## Known Follow-Up Opportunities
 
 - Move remaining inline user-facing strings from `App.tsx` into locale files.
 - Add explicit tests for public CORS behavior and contact quota edge cases.
 - Add traffic statistics views in admin settings.
-- Add a compact rollback command to the deployment helper.
+- Add a one-command restore helper for a selected backup archive.

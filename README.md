@@ -27,3 +27,24 @@ npm run build
 - The public service runs behind Nginx on Vultr and proxies `sipmind.xyz` to the local API service on port `8787`.
 - Use `upload_github.bat` to push to GitHub.
 - Use `pull_to_vultr.bat` only when the latest local changes should be deployed to the public server.
+- Use `backup_vultr.bat` before risky changes or before editing server data.
+
+## Operations
+
+Useful server checks:
+
+```bash
+systemctl status sip-mind
+journalctl -u sip-mind -n 80 --no-pager
+curl -fsS http://127.0.0.1:8787/api/health
+nginx -t
+```
+
+Backups are created on the server under `/opt/sip_mind_backups`.
+
+Rollback path:
+
+1. Restore the previous Git commit on the server or push a reverting commit from local.
+2. Run `npm ci && npm run build`.
+3. Restart with `systemctl restart sip-mind`.
+4. Confirm `/api/health` returns `{"ok":true}`.
