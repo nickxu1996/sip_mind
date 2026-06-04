@@ -1,5 +1,4 @@
 export const zh = {
-  // ... existing fields
   categories: {
     coffee: '咖啡',
     alcohol: '酒类',
@@ -30,15 +29,15 @@ export const zh = {
   inventory: '库存',
   inventoryHint: '点击库存物品，将其设为下一次配方的必要原料。',
   amountOptional: '（容量可选）',
-  itemName: '物品名称',
+  itemName: '食物名称 例如 牛奶',
   amount: '容量',
   add: '添加',
   clear: '清空',
-  volumePlaceholder: '单份容量',
+  volumePlaceholder: '单份容量，例如200ml',
   recommendationPlaceholder: '推荐结果将在此显示。',
   preferences: '偏好',
   randomize: '随机',
-  frugalMode: '节俭模式：尽量用完已选择的库存。',
+  frugalMode: '节俭模式：尽量用完选择的库存',
   recommendationCount: '推荐数量',
   generate: '生成推荐',
   favorites: '我的收藏',

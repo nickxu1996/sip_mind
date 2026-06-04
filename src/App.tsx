@@ -360,7 +360,7 @@ export function App() {
       shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
       guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
       independentDrinks: 'Independent drinks: ingredients are independent between options',
-      ignoreInventory: 'Ignore inventory: randomly generate drinks without considering inventory',
+      ignoreInventory: 'Ignore inventory: randomly generate drinks.',
       ignoreInventoryAuto: 'Automatically used when inventory has fewer than 3 items.',
       useRemaining: 'Use remaining ingredients',
       selected: 'Selected',
@@ -1386,7 +1386,7 @@ export function App() {
               </div>
               <div className="compact-switch-row">
                  <input type="checkbox" id="ignoreInventory" checked={preferences.ignoreInventory} onChange={e => setPreferences({...preferences, ignoreInventory: e.target.checked})} />
-                 <label htmlFor="ignoreInventory">{uiLabels.ignoreInventory}</label>
+                 <label htmlFor="ignoreInventory">{language === 'en' ? uiLabels.ignoreInventory : '无视库存：不考虑库存情况随机生成'}</label>
               </div>
               {autoIgnoreInventory && <div className="compact-help-text">{uiLabels.ignoreInventoryAuto}</div>}
               <label className="compact-number-row">
@@ -1443,11 +1443,11 @@ export function App() {
                        {(rec.steps ?? []).map((step: string, index: number) => <li key={index}>{step}</li>)}
                      </ol>
                    </section>
-                   <section className="recipe-section">
+                   <section className={`recipe-section ${(rec.remainingIngredients ?? []).length === 0 ? 'no-leftovers-section' : ''} ${flashingNoLeftoverId === getRecommendationId('main', rec, i) ? 'flash' : ''}`}>
                      <h4>{uiLabels.remaining}</h4>
                      {(rec.remainingIngredients ?? []).length > 0
                        ? <ul>{rec.remainingIngredients.map((ingredient: string, index: number) => <li key={index}>{ingredient}</li>)}</ul>
-                       : <p className={`no-leftovers-text ${flashingNoLeftoverId === getRecommendationId('main', rec, i) ? 'flash' : ''}`}>{uiLabels.noMeasurableLeftovers}</p>}
+                       : <p className="no-leftovers-text">{uiLabels.noMeasurableLeftovers}</p>}
                    </section>
                    <button
                      className={`select-recipe ${(rec.remainingIngredients ?? []).length === 0 ? 'no-leftovers' : ''} ${selectedRecommendationIds.includes(getRecommendationId('main', rec, i)) ? 'selected' : ''}`}
