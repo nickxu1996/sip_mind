@@ -124,8 +124,10 @@ button { cursor: pointer; }
 
 .inventory-heading-side {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   min-width: 0;
+  height: 100%;
 }
 
 .inventory-strip h2 {
@@ -698,16 +700,20 @@ button { cursor: pointer; }
 }
 
 .food-library-item .mini-delete {
-  width: 20px;
+  min-width: 14px;
+  width: 14px;
+  min-height: 16px;
   padding: 0;
   color: #b91c1c;
+  font-size: 0.62rem;
+  line-height: 1;
 }
 
 .inventory-help {
-  margin: 4px 0 8px;
+  margin: 6px 0 10px;
   color: #78716c;
-  font-size: 0.72rem;
-  line-height: 1.35;
+  font-size: 0.84rem;
+  line-height: 1.45;
   white-space: pre-line;
 }
 

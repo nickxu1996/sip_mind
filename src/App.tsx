@@ -263,7 +263,7 @@ export function App() {
   const [preferencesStorageReady, setPreferencesStorageReady] = useState(false);
   const [inventoryName, setInventoryName] = useState('');
   const [inventoryAmount, setInventoryAmount] = useState('');
-  const [shareFoodLibraryPublicly, setShareFoodLibraryPublicly] = useState(false);
+  const [shareFoodLibraryPublicly, setShareFoodLibraryPublicly] = useState(true);
   const [categories, setCategories] = useState<InventoryCategory[]>(() => orderInventoryCategories(defaultCategories));
   const [newCategoryZh, setNewCategoryZh] = useState('');
   const [newCategoryEn, setNewCategoryEn] = useState('');
@@ -773,7 +773,7 @@ export function App() {
   function addFoodLibraryItem(item: FoodLibraryItem) {
     const exists = inventory.some(inv => inv.name.trim().toLocaleLowerCase() === item.name.trim().toLocaleLowerCase() && getItemCategory(inv) === item.category);
     if (exists) return;
-    const next = [...inventory, { id: createClientId('inventory'), name: item.name, unit: 'ml', category: item.category }];
+    const next = [...inventory, { id: createClientId('inventory'), name: item.name, unit: 'ml', category: item.category, sharePublicFoodLibrary: shareFoodLibraryPublicly }];
     setInventory(next);
     saveInventory(next);
   }

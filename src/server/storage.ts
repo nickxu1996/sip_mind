@@ -58,6 +58,65 @@ function translateCategoryName(name: string) {
   return COMMON_CATEGORY_TRANSLATIONS[name] ?? name;
 }
 
+function normalizeFoodLibraryDuplicates(db: Database.Database) {
+  const rows = db.prepare(`
+    SELECT id, user_id, name, normalized_name, category, created_at
+    FROM food_library
+    ORDER BY user_id ASC, normalized_name ASC, datetime(created_at) DESC, id DESC
+  `).all() as { id: number; user_id: number; name: string; normalized_name: string; category: string; created_at: string }[];
+
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = `${row.user_id}:${row.normalized_name}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+
+  const txn = db.transaction(() => {
+    for (const group of groups.values()) {
+      if (group.length <= 1) continue;
+      const latest = group[0];
+      const latestCategorized = latest.category && latest.category !== UNCATEGORIZED_CATEGORY;
+      const categorizedFallback = group.find(row => row.category && row.category !== UNCATEGORIZED_CATEGORY);
+      const chosen = latestCategorized ? latest : (categorizedFallback ?? latest);
+      db.prepare(`
+        UPDATE food_library
+        SET name = ?, category = ?, created_at = ?
+        WHERE id = ?
+      `).run(latest.name, chosen.category || UNCATEGORIZED_CATEGORY, latest.created_at, chosen.id);
+      db.prepare(`
+        DELETE FROM food_library
+        WHERE user_id = ? AND normalized_name = ? AND id <> ?
+      `).run(chosen.user_id, chosen.normalized_name, chosen.id);
+    }
+  });
+  txn();
+}
+
+function upsertFoodLibraryByName(db: Database.Database, userId: number, name: string, category: string) {
+  const trimmed = String(name ?? '').trim();
+  if (!trimmed) return 0;
+  const normalized = trimmed.toLocaleLowerCase();
+  const nextCategory = String(category || UNCATEGORIZED_CATEGORY).trim() || UNCATEGORIZED_CATEGORY;
+  const existing = db.prepare(`
+    SELECT id, category
+    FROM food_library
+    WHERE user_id = ? AND normalized_name = ?
+    ORDER BY datetime(created_at) DESC, id DESC
+  `).all(userId, normalized) as { id: number; category: string }[];
+  const fallback = existing.find(row => row.category && row.category !== UNCATEGORIZED_CATEGORY);
+  const chosenCategory = nextCategory !== UNCATEGORIZED_CATEGORY ? nextCategory : (fallback?.category ?? UNCATEGORIZED_CATEGORY);
+  const result = db.prepare(`
+    INSERT INTO food_library (user_id, name, normalized_name, category)
+    VALUES (?, ?, ?, ?)
+  `).run(userId, trimmed, normalized, chosenCategory);
+  const newId = Number(result.lastInsertRowid);
+  db.prepare(`
+    DELETE FROM food_library
+    WHERE user_id = ? AND normalized_name = ? AND id <> ?
+  `).run(userId, normalized, newId);
+  return result.changes;
+}
+
 export function orderInventoryCategories(categories: string[]) {
   const seen = new Set<string>();
   const ordered = categories.filter(category => {
@@ -233,6 +292,7 @@ export function createDatabase(dbPath: string) {
       INSERT INTO config (key, value) VALUES ('food_library_public_migration_v1', 'done');
     `);
   }
+  normalizeFoodLibraryDuplicates(db);
 
   const categoryColumns = db.prepare('PRAGMA table_info(inventory_categories)').all() as { name: string }[];
   if (!categoryColumns.some(column => column.name === 'label_zh')) {
@@ -399,17 +459,13 @@ export function createDatabase(dbPath: string) {
       const txn = db.transaction(() => {
         db.prepare('DELETE FROM inventory WHERE user_id = ?').run(user_id);
         const stmt = db.prepare('INSERT INTO inventory (id, user_id, name, amount, unit, category, share_public_food_library) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        const libraryStmt = db.prepare(`
-          INSERT OR IGNORE INTO food_library (user_id, name, normalized_name, category)
-          VALUES (?, ?, ?, ?)
-        `);
         for (const item of items) {
           const category = typeof item.category === 'string' && item.category.trim() ? item.category : UNCATEGORIZED_CATEGORY;
           const sharePublic = item.sharePublicFoodLibrary ? 1 : 0;
           stmt.run(item.id, user_id, item.name, item.amount ?? null, item.unit || 'ml', category, sharePublic);
           const name = String(item.name ?? '').trim();
           const libraryUserId = sharePublic ? 0 : user_id;
-          if (name) libraryStmt.run(libraryUserId, name, name.toLocaleLowerCase(), category);
+          if (name) upsertFoodLibraryByName(db, libraryUserId, name, category);
         }
       });
       txn();
@@ -422,11 +478,16 @@ export function createDatabase(dbPath: string) {
                CASE WHEN user_id = 0 THEN 1 ELSE 0 END AS is_public
         FROM food_library
         WHERE user_id = ? OR user_id = 0
-        ORDER BY category ASC, name ASC, user_id DESC
-      `).all(userId) as any[];
+        ORDER BY
+          normalized_name ASC,
+          CASE WHEN category = ? THEN 1 ELSE 0 END ASC,
+          user_id DESC,
+          datetime(created_at) DESC,
+          id DESC
+      `).all(userId, UNCATEGORIZED_CATEGORY) as any[];
       const seen = new Set<string>();
       return rows.filter(row => {
-        const key = `${String(row.category).toLocaleLowerCase()}:${String(row.name).toLocaleLowerCase()}`;
+        const key = String(row.name).toLocaleLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -435,13 +496,8 @@ export function createDatabase(dbPath: string) {
     upsertFoodLibraryItem(userId: number, name: string, category: string) {
       const trimmed = String(name ?? '').trim();
       if (!trimmed) return null;
-      const normalized = trimmed.toLocaleLowerCase();
       const safeCategory = String(category || UNCATEGORIZED_CATEGORY).trim() || UNCATEGORIZED_CATEGORY;
-      const result = db.prepare(`
-        INSERT OR IGNORE INTO food_library (user_id, name, normalized_name, category)
-        VALUES (?, ?, ?, ?)
-      `).run(userId, trimmed, normalized, safeCategory);
-      return result.changes;
+      return upsertFoodLibraryByName(db, userId, trimmed, safeCategory);
     },
     deleteFoodLibraryItem(userId: number, id: number) {
       db.prepare('DELETE FROM food_library WHERE (user_id = ? OR user_id = 0) AND id = ?').run(userId, id);
