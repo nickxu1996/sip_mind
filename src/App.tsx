@@ -1,37 +1,70 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { en } from './i18n/en';
 import { zh } from './i18n/zh';
 
 type Language = 'en' | 'zh';
-type InventoryItem = { id: string; name: string; amount?: number; unit: string; category: string; };
-type FoodLibraryItem = { id: number; name: string; category: string; };
+type InventoryItem = { id: string; name: string; amount?: number; unit: string; category: string; sharePublicFoodLibrary?: boolean; };
+type FoodLibraryItem = { id: number; name: string; category: string; is_public?: number; };
+type InventoryCategory = { name: string; label_zh: string; label_en: string };
 type User = { id: number; username?: string; role: string; type: 'account' | 'invite'; };
 type AuthCredentials = { username: string; password: string };
-type StoredAuthSession = { user: User; credentials?: AuthCredentials };
+type StoredAuthSession = { user: User; token?: string; credentials?: AuthCredentials };
 type PreferenceKey = 'alcohol' | 'caffeine' | 'temperature' | 'calories';
 type OptionKey = 'any' | 'high' | 'low' | 'none' | 'hot' | 'room' | 'cold' | 'medium' | 'very-low';
 
-const defaultCategories = ['coffee', 'alcohol', 'soft', 'milk', 'powder', 'fruit', 'tea', 'uncategorized'];
+const defaultCategories: InventoryCategory[] = [
+  { name: 'coffee', label_zh: '咖啡', label_en: 'Coffee' },
+  { name: 'alcohol', label_zh: '酒类', label_en: 'Alcohol' },
+  { name: 'soft', label_zh: '软饮', label_en: 'Soft Drinks' },
+  { name: 'milk', label_zh: '奶类', label_en: 'Dairy' },
+  { name: 'powder', label_zh: '粉末', label_en: 'Powder' },
+  { name: 'fruit', label_zh: '水果', label_en: 'Fruit' },
+  { name: 'tea', label_zh: '茶', label_en: 'Tea' },
+  { name: 'uncategorized', label_zh: '未分类', label_en: 'Uncategorized' }
+];
 const authStorageKey = 'sip_mind_user';
+const deviceStorageKey = 'sip_mind_device_id';
 const recommendationsStoragePrefix = 'sip_mind_recommendations';
 const foodHintStoragePrefix = 'sip_mind_food_hint';
 const preferencesStoragePrefix = 'sip_mind_preferences';
-const introTextStorageKey = 'sip_mind_intro_text';
-const defaultIntroText = '选择家中库存和偏好，智能推荐饮品配方。';
+const introTextStoragePrefix = 'sip_mind_intro_text';
+const defaultIntroTexts: Record<Language, string> = {
+  zh: '选择家中库存和偏好，智能推荐饮品配方。',
+  en: 'Choose your home inventory and preferences for smart drink recipe recommendations.'
+};
+const defaultFoodHintTexts: Record<Language, string> = {
+  zh: '单击库存会设为 AI 每个推荐都必须包含的原料；双击可修改，按住可拖动。\n点击食品库即可轻松选择。',
+  en: 'Click inventory to require it in every AI recommendation. Double-click to edit; hold and drag to move.\nClick the food library to choose quickly.'
+};
 let apiReadyPromise: Promise<void> | null = null;
 
 const laneId = (category: string) => `category-lane:${category}`;
 
-function orderInventoryCategories(categories: string[]) {
+function normalizeCategory(category: string | Partial<InventoryCategory>): InventoryCategory {
+  if (typeof category === 'string') {
+    const fallback = defaultCategories.find(item => item.name === category);
+    return fallback ?? { name: category, label_zh: category, label_en: category };
+  }
+  const name = String(category.name ?? '').trim();
+  return {
+    name,
+    label_zh: String(category.label_zh ?? category.name ?? '').trim() || name,
+    label_en: String(category.label_en ?? category.name ?? '').trim() || name
+  };
+}
+
+function orderInventoryCategories(categories: (string | Partial<InventoryCategory>)[]) {
   const seen = new Set<string>();
-  const ordered = categories.filter(category => {
-    if (!category || category === 'uncategorized' || seen.has(category)) return false;
-    seen.add(category);
+  const normalized = categories.map(normalizeCategory).filter(category => category.name);
+  const ordered = normalized.filter(category => {
+    if (!category.name || category.name === 'uncategorized' || seen.has(category.name)) return false;
+    seen.add(category.name);
     return true;
   });
 
-  return [...ordered, 'uncategorized'];
+  const uncategorized = normalized.find(category => category.name === 'uncategorized') ?? normalizeCategory('uncategorized');
+  return [...ordered, uncategorized];
 }
 
 function readStoredAuthSession(): StoredAuthSession | null {
@@ -68,6 +101,14 @@ function readStoredRecommendations(userId: number) {
 
 function storeRecommendations(userId: number, recommendations: unknown[]) {
   localStorage.setItem(getRecommendationsStorageKey(userId), JSON.stringify(recommendations));
+}
+
+function readOrCreateDeviceId() {
+  const existing = localStorage.getItem(deviceStorageKey);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  localStorage.setItem(deviceStorageKey, id);
+  return id;
 }
 
 function getPreferencesStorageKey(userId: number) {
@@ -114,12 +155,26 @@ function storeFoodHint(userId: number | 'guest', language: Language, hint: { tex
   localStorage.setItem(getFoodHintStorageKey(userId, language), JSON.stringify(hint));
 }
 
-function readStoredIntroText() {
-  return localStorage.getItem(introTextStorageKey) || defaultIntroText;
+function getIntroTextStorageKey(language: Language) {
+  return `${introTextStoragePrefix}:${language}`;
 }
 
-function storeIntroText(text: string) {
-  localStorage.setItem(introTextStorageKey, text);
+function readStoredIntroText(language: Language) {
+  const saved = localStorage.getItem(getIntroTextStorageKey(language));
+  if (saved) return saved;
+  if (language === 'zh') {
+    const legacy = localStorage.getItem(introTextStoragePrefix);
+    if (legacy) return legacy;
+  }
+  return defaultIntroTexts[language];
+}
+
+function storeIntroText(language: Language, text: string) {
+  localStorage.setItem(getIntroTextStorageKey(language), text);
+}
+
+function readStoredTextDrafts(reader: (language: Language) => string) {
+  return { zh: reader('zh'), en: reader('en') };
 }
 
 function DraggableChip({ item, isRequired, onToggle, onDelete, onEdit }: { item: InventoryItem, isRequired: boolean, onToggle: () => void, onDelete: () => void, onEdit: () => void }) {
@@ -178,17 +233,24 @@ export function App() {
   });
   const [inventoryName, setInventoryName] = useState('');
   const [inventoryAmount, setInventoryAmount] = useState('');
-  const [categories, setCategories] = useState<string[]>(() => orderInventoryCategories(defaultCategories));
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const [shareFoodLibraryPublicly, setShareFoodLibraryPublicly] = useState(false);
+  const [categories, setCategories] = useState<InventoryCategory[]>(() => orderInventoryCategories(defaultCategories));
+  const [newCategoryZh, setNewCategoryZh] = useState('');
+  const [newCategoryEn, setNewCategoryEn] = useState('');
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [leftoverRecommendations, setLeftoverRecommendations] = useState<any[]>([]);
   const [selectedRecommendationIds, setSelectedRecommendationIds] = useState<string[]>([]);
   const [foodLibrary, setFoodLibrary] = useState<FoodLibraryItem[]>([]);
   const [foodLibraryOpen, setFoodLibraryOpen] = useState(true);
   const [foodHintOverride, setFoodHintOverride] = useState<{ text: string } | null>(null);
-  const [foodHintDraft, setFoodHintDraft] = useState('');
-  const [introText, setIntroText] = useState(readStoredIntroText);
-  const [introTextDraft, setIntroTextDraft] = useState(readStoredIntroText);
+  const [foodHintDrafts, setFoodHintDrafts] = useState<Record<Language, string>>({ zh: '', en: '' });
+  const [introTexts, setIntroTexts] = useState<Record<Language, string>>(() => readStoredTextDrafts(readStoredIntroText));
+  const [introTextDrafts, setIntroTextDrafts] = useState<Record<Language, string>>(() => readStoredTextDrafts(readStoredIntroText));
+  const [deviceId] = useState(readOrCreateDeviceId);
+  const [generationLimits, setGenerationLimits] = useState({ daily_limit_global: '200', daily_limit_user: '50', daily_limit_guest: '10' });
+  const [guestDailyLimit, setGuestDailyLimit] = useState('10');
+  const inventoryLanesRef = useRef<HTMLDivElement | null>(null);
+  const [inventoryLanesHeight, setInventoryLanesHeight] = useState(0);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
@@ -202,7 +264,7 @@ export function App() {
 
   const [authTab, setAuthTab] = useState<'account' | 'invite' | 'register'>('account');
   const [user, setUser] = useState<User | null>(() => readStoredAuthSession()?.user ?? null);
-  const [authCredentials, setAuthCredentials] = useState<AuthCredentials | null>(() => readStoredAuthSession()?.credentials ?? null);
+  const [authToken, setAuthToken] = useState<string>(() => readStoredAuthSession()?.token ?? '');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginInvite, setLoginInvite] = useState('');
@@ -253,6 +315,9 @@ export function App() {
       saveFoodHint: 'Save note',
       resetFoodHint: 'Reset note',
       clearFoodLibrary: 'Clear food library',
+      shareFoodLibrary: 'I agree to share this food to the public food library.',
+      shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
+      guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
       independentDrinks: 'Independent drinks: ingredients are independent between options',
       useRemaining: 'Use remaining ingredients',
       selected: 'Selected',
@@ -281,6 +346,9 @@ export function App() {
       saveFoodHint: '保存说明',
       resetFoodHint: '恢复默认',
       clearFoodLibrary: '清空食品库',
+      shareFoodLibrary: '我同意将该食品共享到公开食品库',
+      shareFoodLibraryHint: '。若不勾选，则只出现在个人食品库。',
+      guestDailyLimit: (count: string) => `未登录用户每日可免费生成${count}次`,
       independentDrinks: '独立饮品：各选项之间食材独立',
       useRemaining: '利用剩余食材',
       selected: '已选择',
@@ -298,7 +366,8 @@ export function App() {
       steps: '做法',
       kcal: 'kcal'
     };
-  const foodHintText = foodHintOverride?.text ?? `${uiLabels.foodHint}\n${uiLabels.foodHintSecond}`;
+  const foodHintText = foodHintOverride?.text ?? defaultFoodHintTexts[language];
+  const introText = introTexts[language] ?? defaultIntroTexts[language];
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -314,35 +383,59 @@ export function App() {
 
   useEffect(() => {
     fetchCategories();
+    fetchPublicConfig();
   }, []);
+
+  useEffect(() => {
+    const element = inventoryLanesRef.current;
+    if (!element) return;
+
+    const updateHeight = () => setInventoryLanesHeight(element.getBoundingClientRect().height);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(element);
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [categories.length, inventory.length]);
 
   useEffect(() => {
     const keyUserId = user?.id ?? 'guest';
     const saved = readStoredFoodHint(keyUserId, language);
     const normalized = saved ? { text: saved.text ?? `${saved.first}\n${saved.second}` } : null;
     setFoodHintOverride(normalized);
-    setFoodHintDraft(normalized?.text ?? `${uiLabels.foodHint}\n${uiLabels.foodHintSecond}`);
+    const zhSaved = readStoredFoodHint(keyUserId, 'zh');
+    const enSaved = readStoredFoodHint(keyUserId, 'en');
+    setFoodHintDrafts({
+      zh: zhSaved?.text ?? defaultFoodHintTexts.zh,
+      en: enSaved?.text ?? defaultFoodHintTexts.en
+    });
   }, [user?.id, language]);
 
   useEffect(() => {
     if (showSettings && user?.role === 'admin') {
       loadInviteCodes();
+      loadGenerationLimits();
     }
   }, [showSettings, user?.role]);
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem(authStorageKey, JSON.stringify({ user, credentials: authCredentials }));
+      localStorage.setItem(authStorageKey, JSON.stringify({ user, token: authToken }));
       setRecommendations(readStoredRecommendations(user.id));
       const savedPreferences = readStoredPreferences(user.id);
       if (savedPreferences) setPreferences(prev => ({ ...prev, ...savedPreferences, requiredIngredientIds: prev.requiredIngredientIds }));
       fetchUserData();
     } else {
       localStorage.removeItem(authStorageKey);
-      setAuthCredentials(null);
-      setInventory([]); setFavorites([]); setRecommendations([]); setFoodLibrary([]); setLeftoverRecommendations([]); setSelectedRecommendationIds([]);
+      setAuthToken('');
+      setFavorites([]); setRecommendations([]); setLeftoverRecommendations([]); setSelectedRecommendationIds([]);
+      fetchPublicFoodLibrary();
     }
-  }, [user, authCredentials]);
+  }, [user, authToken]);
 
   useEffect(() => {
     if (user) {
@@ -354,12 +447,35 @@ export function App() {
   async function fetchUserData() {
     if (!user) return;
     try {
-      const res = await fetchWithRetry(`/api/user/data?userId=${user.id}`);
+      const res = await fetchWithRetry('/api/user/data', { headers: getUserAuthorizationHeaders() });
       if (res.ok) {
         const data = await res.json();
         setInventory(data.inventory);
         setFavorites(data.favorites);
         setFoodLibrary(Array.isArray(data.foodLibrary) ? data.foodLibrary : []);
+      } else if (res.status === 401) {
+        setUser(null);
+        setAuthToken('');
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function fetchPublicFoodLibrary() {
+    try {
+      const res = await fetchWithRetry('/api/food-library/public');
+      if (res.ok) {
+        const data = await res.json();
+        setFoodLibrary(Array.isArray(data.foodLibrary) ? data.foodLibrary : []);
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function fetchPublicConfig() {
+    try {
+      const res = await fetchWithRetry('/api/public/config');
+      if (res.ok) {
+        const data = await res.json();
+        setGuestDailyLimit(String(data.daily_limit_guest ?? '10'));
       }
     } catch (e) { console.error(e); }
   }
@@ -377,10 +493,12 @@ export function App() {
   }
 
   const isInventoryCategory = (value: unknown): value is string =>
-    typeof value === 'string' && categories.includes(value);
+    typeof value === 'string' && categories.some(category => category.name === value);
   const getItemCategory = (item: InventoryItem): string =>
     isInventoryCategory(item.category) ? item.category : 'uncategorized';
   const getCategoryTitle = (category: string) => {
+    const record = categories.find(item => item.name === category);
+    if (record) return language === 'en' ? record.label_en : record.label_zh;
     const labels = t.categories as Record<string, string>;
     return labels[category] ?? category;
   };
@@ -394,7 +512,7 @@ export function App() {
       const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.ok) {
         const data = await res.json();
-        setAuthCredentials(authTab === 'account' ? { username: loginUsername, password: loginPassword } : null);
+        setAuthToken(data.token ?? '');
         setUser(data.user);
         setShowLogin(false);
       } else { alert(t.loginFailed); }
@@ -428,7 +546,7 @@ export function App() {
 
     if (res.ok) {
       const data = await res.json();
-      setAuthCredentials({ username: loginUsername, password: loginPassword });
+      setAuthToken(data.token ?? '');
       setUser(data.user);
       setShowLogin(false);
       setCaptchaChallenge(null);
@@ -446,19 +564,21 @@ export function App() {
   }
 
   async function addInventoryCategory() {
-    const name = newCategoryName.trim();
-    if (!name) return;
+    const label_zh = newCategoryZh.trim();
+    const label_en = newCategoryEn.trim();
+    if (!label_zh && !label_en) return;
     const authHeader = getAdminAuthorizationHeader();
     if (!authHeader) return;
     const res = await fetch('/api/admin/inventory/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ label_zh, label_en })
     });
     if (res.ok) {
       const data = await res.json();
       setCategories(orderInventoryCategories(data.categories));
-      setNewCategoryName('');
+      setNewCategoryZh('');
+      setNewCategoryEn('');
     }
   }
 
@@ -481,15 +601,19 @@ export function App() {
   }
 
   function getAdminAuthorizationHeader() {
-    const credentials = authCredentials ?? (loginUsername && loginPassword ? { username: loginUsername, password: loginPassword } : null);
-    if (!credentials) {
+    if (authToken && user?.role === 'admin') return `Bearer ${authToken}`;
+    if (!loginUsername || !loginPassword) {
       setAuthTab('account');
       setShowLogin(true);
       alert(language === 'en' ? 'Please sign in again as admin.' : '请重新以管理员身份登录。');
       return null;
     }
 
-    return `Basic ${encodeBasicCredentials(credentials)}`;
+    return `Basic ${encodeBasicCredentials({ username: loginUsername, password: loginPassword })}`;
+  }
+
+  function getUserAuthorizationHeaders(extra: Record<string, string> = {}) {
+    return authToken ? { ...extra, Authorization: `Bearer ${authToken}` } : extra;
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -512,7 +636,7 @@ export function App() {
     const amount = match ? parseFloat(match[1]) : undefined;
     const unit = match ? match[2].trim() || 'ml' : 'ml';
     
-    const next = [...inventory, { id: crypto.randomUUID(), name: inventoryName, amount, unit, category: 'uncategorized' }];
+    const next = [...inventory, { id: crypto.randomUUID(), name: inventoryName, amount, unit, category: 'uncategorized', sharePublicFoodLibrary: shareFoodLibraryPublicly }];
     setInventory(next); setInventoryName(''); setInventoryAmount('');
     saveInventory(next);
   }
@@ -543,7 +667,6 @@ export function App() {
   }
 
   async function generateRecommendations() {
-    if (!user) { setShowLogin(true); return; }
     setLoading(true);
     setGenerationStatus(language === 'zh' ? '正在验证输入...' : 'Validating input...');
     try {
@@ -551,8 +674,8 @@ export function App() {
       setGenerationStatus(language === 'zh' ? '正在调用 AI...' : 'Calling AI...');
       const res = await fetch('/api/recommendations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory, preferences, language, userId: user.id })
+        headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ inventory, preferences, language, deviceId })
       });
       if (res.ok) {
         const data = await res.json();
@@ -561,7 +684,7 @@ export function App() {
         setRecommendations(data.recommendations);
         setLeftoverRecommendations([]);
         setSelectedRecommendationIds([]);
-        storeRecommendations(user.id, data.recommendations);
+        if (user) storeRecommendations(user.id, data.recommendations);
         setGenerationStatus(language === 'zh' ? '完成' : 'Done');
       } else if (res.status === 429) {
         setGenerationStatus(language === 'zh' ? '错误：已达到今日生成上限' : 'Error: daily limit reached');
@@ -583,7 +706,7 @@ export function App() {
     if (!user) return;
     try {
       const fav = { name: rec.name, rating: 5, ingredients: rec.ingredients, steps: rec.steps, metadata: {alcohol: rec.alcohol, caffeine: rec.caffeine, calories: rec.calories, score: rec.score} };
-      await fetch('/api/user/favorites', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({userId: user.id, favorite: fav})});
+      await fetch('/api/user/favorites', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ favorite: fav })});
       fetchUserData();
     } catch (e) { console.error(e); }
   }
@@ -600,7 +723,7 @@ export function App() {
 
   async function saveInventory(next: InventoryItem[]) {
     if (!user) return;
-    await fetch('/api/user/inventory', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({userId: user.id, items: next})});
+    await fetch('/api/user/inventory', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ items: next })});
     fetchUserData();
   }
 
@@ -641,6 +764,34 @@ export function App() {
     }
   }
 
+  async function loadGenerationLimits() {
+    if (!user || user.role !== 'admin') return;
+    const authHeader = getAdminAuthorizationHeader();
+    if (!authHeader) return;
+    const res = await fetch('/api/admin/config', { headers: { 'Authorization': authHeader } });
+    if (res.ok) {
+      const data = await res.json();
+      setGenerationLimits({
+        daily_limit_global: String(data.daily_limit_global ?? '200'),
+        daily_limit_user: String(data.daily_limit_user ?? '50'),
+        daily_limit_guest: String(data.daily_limit_guest ?? '10')
+      });
+    }
+  }
+
+  async function saveGenerationLimits() {
+    if (!user || user.role !== 'admin') return;
+    const authHeader = getAdminAuthorizationHeader();
+    if (!authHeader) return;
+    await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
+      body: JSON.stringify(generationLimits)
+    });
+    await loadGenerationLimits();
+    await fetchPublicConfig();
+  }
+
   async function generateInviteCode() {
     if (!user || user.role !== 'admin') return;
     const authHeader = getAdminAuthorizationHeader();
@@ -661,12 +812,21 @@ export function App() {
     return `${group}:${rec.order ?? index}:${rec.name ?? index}`;
   }
 
+  async function logout() {
+    const token = authToken;
+    setUser(null);
+    setAuthToken('');
+    if (token) {
+      await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+    }
+  }
+
   function toggleRecommendationSelection(id: string) {
     setSelectedRecommendationIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   }
 
   async function generateFromRemainingIngredients() {
-    if (!user || selectedRecommendationIds.length === 0) return;
+    if (selectedRecommendationIds.length === 0) return;
     const selected = recommendations.filter((rec, index) => selectedRecommendationIds.includes(getRecommendationId('main', rec, index)));
     const leftoverInventory = selected.flatMap((rec, recIndex) => (rec.remainingIngredients ?? []).map((text: string, index: number) => parseRemainingIngredient(text, recIndex, index)));
     if (leftoverInventory.length === 0) return;
@@ -676,12 +836,12 @@ export function App() {
     try {
       const res = await fetch('/api/recommendations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           inventory: leftoverInventory,
           preferences: { ...preferences, frugalMode: false, independentDrinks: true, requiredIngredientIds: [], recommendationCount: Math.min(3, Math.max(1, leftoverInventory.length)) },
           language,
-          userId: user.id
+          deviceId
         })
       });
       if (res.ok) {
@@ -716,7 +876,7 @@ export function App() {
               <option value="zh">中文</option>
             </select>
           </label>
-          {user ? <button onClick={() => setUser(null)}>{user.username || t.inviteCode} ({t.logout})</button> : <button onClick={() => setShowLogin(true)}>{t.login}</button>}
+          {user ? <button onClick={logout}>{user.username || t.inviteCode} ({t.logout})</button> : <button onClick={() => setShowLogin(true)}>{t.login}</button>}
           <button onClick={() => setShowSettings(true)}>{t.settings}</button>
         </div>
       </header>
@@ -804,17 +964,18 @@ export function App() {
                         <h3>{language === 'en' ? 'Inventory Categories' : '库存分类'}</h3>
                       </div>
                       <div className="inline-form settings-inline-form">
-                        <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={language === 'en' ? 'Category name' : '分类名称'} />
+                        <input value={newCategoryZh} onChange={e => setNewCategoryZh(e.target.value)} placeholder={language === 'en' ? 'Chinese name' : '中文名称'} />
+                        <input value={newCategoryEn} onChange={e => setNewCategoryEn(e.target.value)} placeholder={language === 'en' ? 'English name' : '英文名称'} />
                         <button onClick={addInventoryCategory}>{t.add}</button>
                       </div>
                       <div className="settings-scroll-list">
                         {categories.map(category => (
-                          <div key={category} className="category-settings-row">
-                            <span>{getCategoryTitle(category)}</span>
+                          <div key={category.name} className="category-settings-row">
+                            <span>{language === 'en' ? category.label_en : category.label_zh}</span>
                             <button
                               className="text-button"
-                              disabled={category === 'uncategorized'}
-                              onClick={() => removeInventoryCategory(category)}
+                              disabled={category.name === 'uncategorized'}
+                              onClick={() => removeInventoryCategory(category.name)}
                             >
                               {language === 'en' ? 'Delete' : '删除'}
                             </button>
@@ -830,20 +991,68 @@ export function App() {
                       <button className="text-button" onClick={clearFoodLibrary}>{uiLabels.clearFoodLibrary}</button>
                     </section>
 
+                    <section className="settings-section">
+                      <div className="settings-section-heading">
+                        <h3>{language === 'en' ? 'Daily generation limits' : '每日生成额度'}</h3>
+                      </div>
+                      <div className="settings-limit-grid">
+                        <label>
+                          <span>{language === 'en' ? 'Whole site' : '全站'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={generationLimits.daily_limit_global}
+                            onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_global: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          <span>{language === 'en' ? 'Single user' : '单个用户'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={generationLimits.daily_limit_user}
+                            onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_user: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          <span>{language === 'en' ? 'Guest IP/device' : '未登录 IP/设备'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={generationLimits.daily_limit_guest}
+                            onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_guest: e.target.value }))}
+                          />
+                        </label>
+                      </div>
+                      <button onClick={saveGenerationLimits}>{language === 'en' ? 'Save limits' : '保存额度'}</button>
+                    </section>
+
                     <section className="settings-section settings-note-editor">
                       <h3>{uiLabels.introTextSettings}</h3>
-                      <textarea value={introTextDraft} onChange={e => setIntroTextDraft(e.target.value)} />
+                      <label>
+                        <span>{language === 'en' ? 'Chinese' : '中文'}</span>
+                        <textarea value={introTextDrafts.zh} onChange={e => setIntroTextDrafts(prev => ({ ...prev, zh: e.target.value }))} />
+                      </label>
+                      <label>
+                        <span>{language === 'en' ? 'English' : '英文'}</span>
+                        <textarea value={introTextDrafts.en} onChange={e => setIntroTextDrafts(prev => ({ ...prev, en: e.target.value }))} />
+                      </label>
                       <div className="modal-actions">
                         <button onClick={() => {
-                          localStorage.removeItem(introTextStorageKey);
-                          setIntroText(defaultIntroText);
-                          setIntroTextDraft(defaultIntroText);
+                          localStorage.removeItem(getIntroTextStorageKey('zh'));
+                          localStorage.removeItem(getIntroTextStorageKey('en'));
+                          setIntroTexts(defaultIntroTexts);
+                          setIntroTextDrafts(defaultIntroTexts);
                         }}>{uiLabels.resetIntroText}</button>
                         <button onClick={() => {
-                          const next = introTextDraft.trim() || defaultIntroText;
-                          storeIntroText(next);
-                          setIntroText(next);
-                          setIntroTextDraft(next);
+                          const next = {
+                            zh: introTextDrafts.zh.trim() || defaultIntroTexts.zh,
+                            en: introTextDrafts.en.trim() || defaultIntroTexts.en
+                          };
+                          storeIntroText('zh', next.zh);
+                          storeIntroText('en', next.en);
+                          setIntroTexts(next);
+                          setIntroTextDrafts(next);
                         }}>{uiLabels.saveIntroText}</button>
                       </div>
                     </section>
@@ -851,20 +1060,31 @@ export function App() {
               ) : <p>{t.adminZone} ({t.loginTabAccount} {language === 'en' ? 'Required' : '必选'})</p>}
               <section className="settings-section settings-note-editor">
                 <h3>{uiLabels.foodHintSettings}</h3>
-                <textarea value={foodHintDraft} onChange={e => setFoodHintDraft(e.target.value)} />
+                <label>
+                  <span>{language === 'en' ? 'Chinese' : '中文'}</span>
+                  <textarea value={foodHintDrafts.zh} onChange={e => setFoodHintDrafts(prev => ({ ...prev, zh: e.target.value }))} />
+                </label>
+                <label>
+                  <span>{language === 'en' ? 'English' : '英文'}</span>
+                  <textarea value={foodHintDrafts.en} onChange={e => setFoodHintDrafts(prev => ({ ...prev, en: e.target.value }))} />
+                </label>
                 <div className="modal-actions">
                   <button onClick={() => {
-                    const next = `${uiLabels.foodHint}\n${uiLabels.foodHintSecond}`;
                     const keyUserId = user?.id ?? 'guest';
-                    localStorage.removeItem(getFoodHintStorageKey(keyUserId, language));
+                    localStorage.removeItem(getFoodHintStorageKey(keyUserId, 'zh'));
+                    localStorage.removeItem(getFoodHintStorageKey(keyUserId, 'en'));
                     setFoodHintOverride(null);
-                    setFoodHintDraft(next);
+                    setFoodHintDrafts(defaultFoodHintTexts);
                   }}>{uiLabels.resetFoodHint}</button>
                   <button onClick={() => {
-                    const next = { text: foodHintDraft.trim() };
                     const keyUserId = user?.id ?? 'guest';
-                    storeFoodHint(keyUserId, language, next);
-                    setFoodHintOverride(next);
+                    const next = {
+                      zh: { text: foodHintDrafts.zh.trim() || defaultFoodHintTexts.zh },
+                      en: { text: foodHintDrafts.en.trim() || defaultFoodHintTexts.en }
+                    };
+                    storeFoodHint(keyUserId, 'zh', next.zh);
+                    storeFoodHint(keyUserId, 'en', next.en);
+                    setFoodHintOverride(next[language]);
                   }}>{uiLabels.saveFoodHint}</button>
                 </div>
               </section>
@@ -893,17 +1113,22 @@ export function App() {
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <section className="inventory-strip">
           <div className="section-heading">
-            <h2>{t.inventory}</h2>
-            <button className="text-button" onClick={() => {setInventory([]); if(user) fetch('/api/user/inventory', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({userId: user.id, items: []})});}}>{t.clear}</button>
+            <div className="inventory-heading-main">
+              <h2>{t.inventory}</h2>
+              <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
+            </div>
+            <div className="inventory-heading-side">
+              <button className="text-button" onClick={() => {setInventory([]); if(user) fetch('/api/user/inventory', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ items: [] })});}}>{t.clear}</button>
+            </div>
           </div>
           <div className="inventory-library-layout">
-            <div className="inventory-lanes">
-              {categories.map(cat => (
+            <div className="inventory-lanes" ref={inventoryLanesRef}>
+              {categories.map(category => (
                 <CategoryLane 
-                  key={cat} 
-                  id={cat} 
-                  title={getCategoryTitle(cat)}
-                  items={inventory.filter(i => getItemCategory(i) === cat)} 
+                  key={category.name} 
+                  id={category.name} 
+                  title={getCategoryTitle(category.name)}
+                  items={inventory.filter(i => getItemCategory(i) === category.name)} 
                   requiredIds={preferences.requiredIngredientIds}
                   onToggle={(id) => {
                      const next = preferences.requiredIngredientIds.includes(id) ? preferences.requiredIngredientIds.filter(x=>x!==id) : [...preferences.requiredIngredientIds, id];
@@ -914,7 +1139,7 @@ export function App() {
                 />
               ))}
             </div>
-            <div className="food-library">
+            <div className="food-library" style={foodLibraryOpen && inventoryLanesHeight > 0 ? { height: inventoryLanesHeight } : undefined}>
               <button className="food-library-toggle" onClick={() => setFoodLibraryOpen(prev => !prev)}>
                 <span>{foodLibraryOpen ? 'v' : '>'}</span>
                 {uiLabels.foodLibrary}
@@ -922,11 +1147,11 @@ export function App() {
               {foodLibraryOpen && (
                 <div className="food-library-body">
                   {categories.map(category => {
-                    const items = foodLibrary.filter(item => item.category === category);
+                    const items = foodLibrary.filter(item => item.category === category.name);
                     if (items.length === 0) return null;
                     return (
-                      <div key={category} className="food-library-group">
-                        <h4>{getCategoryTitle(category)}</h4>
+                      <div key={category.name} className="food-library-group">
+                        <h4>{getCategoryTitle(category.name)}</h4>
                         <div className="food-library-items">
                           {items.map(item => (
                             <span key={item.id} className="food-library-item">
@@ -948,6 +1173,11 @@ export function App() {
             <input value={inventoryAmount} onChange={e => setInventoryAmount(e.target.value)} placeholder={t.volumePlaceholder} />
             <button onClick={addInventoryItem}>{t.add}</button>
           </div>
+          <label className="food-share-consent">
+            <input type="checkbox" checked={shareFoodLibraryPublicly} onChange={e => setShareFoodLibraryPublicly(e.target.checked)} />
+            <span>{uiLabels.shareFoodLibrary}</span>
+            <small>{uiLabels.shareFoodLibraryHint}</small>
+          </label>
         </section>
       </DndContext>
 

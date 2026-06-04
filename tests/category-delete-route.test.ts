@@ -59,9 +59,81 @@ describe('admin inventory category deletion route', () => {
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.categories).not.toContain('syrup/sweet');
+      expect(body.categories.map((category: any) => category.name)).not.toContain('syrup/sweet');
       const inventory = database.getInventory(userId) as any[];
       expect(inventory.find(item => item.id === 'grenadine')?.category).toBe('uncategorized');
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
+  it('adds bilingual inventory categories for multilingual display', async () => {
+    const database = createDatabase(makeDbPath());
+    const app = createApp(database, ai as any, { ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'pa:ss' });
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/admin/inventory/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: basic('admin', 'pa:ss')
+        },
+        body: JSON.stringify({ label_zh: '糖浆', label_en: 'Syrup' })
+      });
+      const body = await response.json();
+      const category = body.categories.find((item: any) => item.label_zh === '糖浆');
+
+      expect(response.status).toBe(200);
+      expect(category).toMatchObject({ label_zh: '糖浆', label_en: 'Syrup' });
+      expect(category.name).toBe('syrup');
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
+  it('exposes the public food library without login', async () => {
+    const database = createDatabase(makeDbPath());
+    const userId = database.createUser({ username: 'public-library-user', password: 'test' });
+    database.setInventory(userId, [
+      { id: 'shared-tea', name: 'Shared Tea', amount: 100, unit: 'ml', category: 'tea', sharePublicFoodLibrary: true }
+    ]);
+    const app = createApp(database, ai as any, { ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'pa:ss' });
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/food-library/public`);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.foodLibrary.some((item: any) => item.name === 'Shared Tea')).toBe(true);
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
+  it('exposes the guest daily generation limit without login', async () => {
+    const database = createDatabase(makeDbPath());
+    database.setConfig('daily_limit_guest', '12');
+    const app = createApp(database, ai as any, { ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'pa:ss' });
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/public/config`);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.daily_limit_guest).toBe('12');
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()));
       database.db.close();

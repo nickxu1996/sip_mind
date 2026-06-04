@@ -53,7 +53,15 @@ describe('registration route', () => {
       const body = await response.json();
       expect(response.status).toBe(200);
       expect(body.user.username).toBe('new-user');
-      expect(database.getUserByUsername('new-user')).toBeTruthy();
+      expect(body.token).toBeTruthy();
+      const savedUser = database.getUserByUsername('new-user') as any;
+      expect(savedUser).toBeTruthy();
+      expect(savedUser.password).not.toBe('secret1');
+
+      const dataResponse = await fetch(`http://127.0.0.1:${address.port}/api/user/data`, {
+        headers: { Authorization: `Bearer ${body.token}` }
+      });
+      expect(dataResponse.status).toBe(200);
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()));
       database.db.close();

@@ -54,9 +54,55 @@ const ai = {
 };
 
 describe('recommendation generation route', () => {
+  it('allows guest generation with a device id and enforces the guest daily limit', async () => {
+    const database = createDatabase(makeDbPath());
+    database.setConfig('daily_limit_guest', '1');
+    const app = createApp(database, ai);
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+
+      const body = {
+        deviceId: 'guest-device-one',
+        inventory: [{ id: 'tea', name: 'Oolong tea', amount: null, unit: 'oz', category: 'tea' }],
+        preferences: {
+          alcohol: 'none',
+          caffeine: 'low',
+          temperature: 'cold',
+          calories: 'low',
+          frugalMode: false,
+          requiredIngredientIds: ['tea'],
+          recommendationCount: '2'
+        },
+        language: 'en'
+      };
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      expect(response.status).toBe(200);
+
+      const overLimit = await fetch(`http://127.0.0.1:${address.port}/api/recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      expect(overLimit.status).toBe(429);
+      await expect(overLimit.json()).resolves.toMatchObject({ error: 'GUEST_DAILY_LIMIT_REACHED' });
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
   it('accepts the frontend request body, returns recommendations, and saves history', async () => {
     const database = createDatabase(makeDbPath());
     const userId = database.createUser({ username: 'recommendation-route-test', password: 'test' });
+    const token = database.createSession(userId);
     const app = createApp(database, ai);
     const server = app.listen(0);
 
@@ -66,9 +112,8 @@ describe('recommendation generation route', () => {
 
       const response = await fetch(`http://127.0.0.1:${address.port}/api/recommendations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          userId,
           inventory: [{ id: 'tea', name: 'Oolong tea', amount: null, unit: 'oz', category: 'tea' }],
           preferences: {
             alcohol: 'none',
@@ -103,6 +148,7 @@ describe('recommendation generation route', () => {
   it('returns a JSON error without saving fake history when AI output cannot be normalized into cards', async () => {
     const database = createDatabase(makeDbPath());
     const userId = database.createUser({ username: 'empty-ai-route-test', password: 'test' });
+    const token = database.createSession(userId);
     const app = createApp(database, {
       name: 'test-ai',
       model: 'test-model',
@@ -118,9 +164,8 @@ describe('recommendation generation route', () => {
 
       const response = await fetch(`http://127.0.0.1:${address.port}/api/recommendations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          userId,
           inventory: [{ id: 'tea', name: 'Oolong tea', amount: null, unit: 'oz', category: 'tea' }],
           preferences: {
             alcohol: 'none',
@@ -140,6 +185,72 @@ describe('recommendation generation route', () => {
       expect(body.error).toBe('AI_RESPONSE_UNUSABLE');
       expect(body.recommendations).toBeUndefined();
       expect(database.listRecommendationHistory(10)).toHaveLength(0);
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
+  it('enforces configurable global and per-user daily generation limits', async () => {
+    const database = createDatabase(makeDbPath());
+    const firstUserId = database.createUser({ username: 'limit-user-one', password: 'test' });
+    const secondUserId = database.createUser({ username: 'limit-user-two', password: 'test' });
+    const firstToken = database.createSession(firstUserId);
+    const secondToken = database.createSession(secondUserId);
+    database.setConfig('daily_limit_global', '2');
+    database.setConfig('daily_limit_user', '1');
+    const app = createApp(database, ai);
+    const server = app.listen(0);
+
+    const requestBody = () => ({
+      inventory: [{ id: 'tea', name: 'Oolong tea', amount: null, unit: 'oz', category: 'tea' }],
+      preferences: {
+        alcohol: 'none',
+        caffeine: 'low',
+        temperature: 'cold',
+        calories: 'low',
+        frugalMode: false,
+        requiredIngredientIds: ['tea'],
+        recommendationCount: '2'
+      },
+      language: 'en'
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+      const url = `http://127.0.0.1:${address.port}/api/recommendations`;
+
+      const first = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${firstToken}` },
+        body: JSON.stringify(requestBody())
+      });
+      expect(first.status).toBe(200);
+
+      const sameUserAgain = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${firstToken}` },
+        body: JSON.stringify(requestBody())
+      });
+      expect(sameUserAgain.status).toBe(429);
+      await expect(sameUserAgain.json()).resolves.toMatchObject({ error: 'USER_DAILY_LIMIT_REACHED' });
+
+      const second = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secondToken}` },
+        body: JSON.stringify(requestBody())
+      });
+      expect(second.status).toBe(200);
+
+      database.setConfig('daily_limit_user', '5');
+      const globalExceeded = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${firstToken}` },
+        body: JSON.stringify(requestBody())
+      });
+      expect(globalExceeded.status).toBe(429);
+      await expect(globalExceeded.json()).resolves.toMatchObject({ error: 'GLOBAL_DAILY_LIMIT_REACHED' });
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()));
       database.db.close();

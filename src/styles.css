@@ -82,7 +82,8 @@ button { cursor: pointer; }
 
 .settings-bar {
   display: flex;
-  align-items: center;
+  align-self: flex-start;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -107,17 +108,42 @@ button { cursor: pointer; }
 }
 
 .inventory-strip .section-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
   align-items: center;
-  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.inventory-heading-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.inventory-heading-side {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .inventory-strip h2 {
   margin: 0;
   font-size: 0.95rem;
   color: #333;
+}
+
+.guest-limit-note {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #78716c;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .inventory-library-layout {
@@ -591,7 +617,11 @@ button { cursor: pointer; }
 }
 
 .food-library {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid #f1f5f9;
   border-radius: 6px;
   padding: 8px;
@@ -620,7 +650,8 @@ button { cursor: pointer; }
   display: grid;
   gap: 6px;
   margin-top: 6px;
-  max-height: 220px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -669,6 +700,29 @@ button { cursor: pointer; }
   font-size: 0.72rem;
   line-height: 1.35;
   white-space: pre-line;
+}
+
+.food-share-consent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: #44403c;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.food-share-consent input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.food-share-consent small {
+  color: #78716c;
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
 .recipe-section {
@@ -802,6 +856,18 @@ button { cursor: pointer; }
   border: 1px solid #eee;
   border-radius: 6px;
   padding: 8px;
+}
+
+.settings-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-limit-grid label {
+  display: grid;
+  gap: 4px;
+  margin: 0;
 }
 
 .modal .auth-tabs {
@@ -983,6 +1049,9 @@ button { cursor: pointer; }
 
 @media (max-width: 700px) {
   .content-grid { grid-template-columns: 1fr; }
+  .inventory-strip .section-heading { grid-template-columns: 1fr; gap: 6px; }
+  .inventory-heading-side { justify-content: flex-start; }
+  .guest-limit-note { position: static; transform: none; margin-left: 10px; }
   .inventory-library-layout { grid-template-columns: 1fr; }
   .history-panel { grid-column: span 1; }
   .top-bar { flex-direction: column; align-items: flex-start; }

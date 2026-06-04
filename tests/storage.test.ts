@@ -54,9 +54,13 @@ describe('SQLite storage', () => {
     database.addInventoryCategory('syrup');
 
     const categories = database.getInventoryCategories();
-    expect(categories.at(-1)).toBe('uncategorized');
-    expect(categories.indexOf('syrup')).toBeGreaterThan(-1);
-    expect(categories.indexOf('syrup')).toBeLessThan(categories.indexOf('uncategorized'));
+    const names = categories.map((category: any) => category.name);
+    expect(names.at(-1)).toBe('uncategorized');
+    expect(names.indexOf('syrup')).toBeGreaterThan(-1);
+    expect(names.indexOf('syrup')).toBeLessThan(names.indexOf('uncategorized'));
+    const coffee = categories.find((category: any) => category.name === 'coffee') as any;
+    expect(coffee?.label_en).toBe('Coffee');
+    expect(coffee?.label_zh).toBe('咖啡');
   });
 
   it('persists inventory item categories for every item', () => {
@@ -93,6 +97,68 @@ describe('SQLite storage', () => {
     const database = createDatabase(dbPath);
     const columns = database.db.prepare('PRAGMA table_info(inventory)').all() as { name: string }[];
     expect(columns.map(column => column.name)).toContain('category');
+    expect(columns.map(column => column.name)).toContain('share_public_food_library');
+  });
+
+  it('shares public food library items across accounts while keeping private items personal', () => {
+    const database = createDatabase(makeDbPath());
+    const firstUserId = database.createUser({ username: 'library-one', password: 'test' });
+    const secondUserId = database.createUser({ username: 'library-two', password: 'test' });
+
+    database.setInventory(firstUserId, [
+      { id: 'public-milk', name: 'Shared Milk', amount: 100, unit: 'ml', category: 'milk', sharePublicFoodLibrary: true },
+      { id: 'private-syrup', name: 'Private Syrup', amount: 50, unit: 'ml', category: 'soft', sharePublicFoodLibrary: false }
+    ]);
+
+    const firstLibrary = database.getFoodLibrary(firstUserId) as any[];
+    const secondLibrary = database.getFoodLibrary(secondUserId) as any[];
+    const storedInventory = database.getInventory(firstUserId) as any[];
+
+    expect(firstLibrary.some(item => item.name === 'Shared Milk')).toBe(true);
+    expect(firstLibrary.some(item => item.name === 'Private Syrup')).toBe(true);
+    expect(secondLibrary.some(item => item.name === 'Shared Milk')).toBe(true);
+    expect(secondLibrary.some(item => item.name === 'Private Syrup')).toBe(false);
+    expect(storedInventory.find(item => item.id === 'public-milk')?.sharePublicFoodLibrary).toBe(1);
+  });
+
+  it('migrates existing food library contents to public once', () => {
+    const dbPath = makeDbPath();
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        invite_code TEXT UNIQUE,
+        role TEXT NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+      );
+      INSERT INTO users (id, username, password, role) VALUES (1, 'migration-one', 'test', 'user');
+      INSERT INTO users (id, username, password, role) VALUES (2, 'migration-two', 'test', 'user');
+      CREATE TABLE food_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        normalized_name TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'uncategorized',
+        created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+        UNIQUE(user_id, normalized_name, category),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      );
+      INSERT INTO food_library (user_id, name, normalized_name, category) VALUES (1, 'Legacy Syrup', 'legacy syrup', 'soft');
+    `);
+    legacy.close();
+
+    const migrated = createDatabase(dbPath);
+    const firstUserId = 1;
+    const secondUserId = 2;
+    const secondLibrary = migrated.getFoodLibrary(secondUserId) as any[];
+    expect(secondLibrary.some(item => item.name === 'Legacy Syrup' && item.is_public === 1)).toBe(true);
+
+    migrated.setInventory(firstUserId, [
+      { id: 'private-new', name: 'New Private Cream', amount: 50, unit: 'ml', category: 'milk', sharePublicFoodLibrary: false }
+    ]);
+    expect((migrated.getFoodLibrary(secondUserId) as any[]).some(item => item.name === 'New Private Cream')).toBe(false);
   });
 
   it('moves inventory items to uncategorized when deleting a category', () => {
@@ -109,7 +175,7 @@ describe('SQLite storage', () => {
     const inventory = database.getInventory(userId) as any[];
     expect(inventory.find(item => item.id === 'grenadine')?.category).toBe('uncategorized');
     expect(inventory.find(item => item.id === 'oolong')?.category).toBe('tea');
-    expect(database.getInventoryCategories()).not.toContain('syrup');
+    expect(database.getInventoryCategories().map((category: any) => category.name)).not.toContain('syrup');
   });
 
   it('persists recommendation history and returns newest first', () => {

@@ -281,11 +281,20 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
   const alcoholDimensions = request.language === 'zh'
     ? ['酒精感平衡', '甜度/酸度平衡', '香气', '口感顺滑度', '整体协调感']
     : ['Alcohol balance', 'Sweetness/acidity balance', 'Aroma', 'Smoothness', 'Overall harmony'];
+  const responseLanguageName = request.language === 'zh' ? 'Simplified Chinese' : 'English';
+  const localizedCoffeeDimensions = request.language === 'zh'
+    ? ['甜度平衡', '苦味顺滑度', '香气/风味感', '口感厚度/滑顺度', '整体协调度']
+    : ['Sweetness balance', 'Bitterness smoothness', 'Aroma/flavor presence', 'Body/smoothness', 'Overall harmony'];
+  const localizedAlcoholDimensions = request.language === 'zh'
+    ? ['酒精感平衡', '甜度/酸度平衡', '香气', '口感顺滑度', '整体协调感']
+    : ['Alcohol balance', 'Sweetness/acidity balance', 'Aroma', 'Smoothness', 'Overall harmony'];
 
   return [
     'You are Sip Mind, an AI drink recommendation assistant.',
-    `Response language: ${request.language}`,
-    'Use the response language for the drink name, ingredient text, preparation steps, reason, and score dimension labels.',
+    `Response language: ${responseLanguageName}.`,
+    `All user-facing JSON string values must be written in ${responseLanguageName}: drink name, ingredients, steps, reason/evaluation, score dimension labels, and remainingIngredients.`,
+    'Only these metadata enum values stay in English because the app parser requires them: alcohol, caffeine, temperature.',
+    'Do not mix languages. Preserve exact inventory item names when they are ingredient names, but write the surrounding recipe text in the response language.',
     `Return exactly ${request.preferences.recommendationCount} drink recommendations, ordered by recommendation level (best match first).`,
     'Return only valid JSON. Do not include markdown, prose, or comments.',
     'All JSON strings must be properly quoted and escaped. Do not use trailing commas, smart quotes, unescaped line breaks, or comments.',
@@ -295,8 +304,8 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
     'Every recommendation must include remainingIngredients. For each drink, list only ingredients that are actually used in that drink and have a numeric inventory amount. Calculate each item as inventory amount for that item minus the amount used by this drink. Do not list unused inventory. If a used ingredient has no numeric inventory amount, do not include it in remainingIngredients. If nothing qualifies, return an empty array.',
     'Ingredients with unspecified amount should not be considered for frugal exhaustion or remainingIngredients, but they may still be used for taste.',
     'Score total from 0 to 100. Score each dimension value from 0 to 10.',
-    `For non-alcohol coffee/caffeine drinks, use these five dimension labels exactly: ${coffeeDimensions.join(', ')}.`,
-    `For alcoholic drinks, use these five dimension labels exactly: ${alcoholDimensions.join(', ')}.`,
+    `For non-alcohol coffee/caffeine drinks, use these five dimension labels exactly: ${localizedCoffeeDimensions.join(', ')}.`,
+    `For alcoholic drinks, use these five dimension labels exactly: ${localizedAlcoholDimensions.join(', ')}.`,
     'If a drink contains both coffee/caffeine and alcohol, use the alcoholic drink dimension labels.',
     'The reason field must briefly explain the score in one or two sentences.',
     '',

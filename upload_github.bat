@@ -1,20 +1,14 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-set "REPO_URL=%~1"
+set "REPO_URL=https://github.com/nickxu1996/sip_mind.git"
 set "BRANCH=master"
 
-if "%REPO_URL%"=="" (
-  echo Please drag this bat into Command Prompt with your GitHub repo URL:
-  echo.
-  echo   upload_github.bat https://github.com/YOUR_NAME/05_sip_mind.git
-  echo.
-  echo Or edit this file and set REPO_URL directly.
-  pause
-  exit /b 1
-)
+echo.
+echo [Sip Mind] One-click GitHub upload
+echo Repo: %REPO_URL%
 
 git --version >nul 2>&1
 if errorlevel 1 (
@@ -28,13 +22,9 @@ if errorlevel 1 (
   git init
 )
 
-git branch --show-current >nul 2>&1
 for /f "usebackq delims=" %%b in (`git branch --show-current`) do set "CURRENT_BRANCH=%%b"
-if "%CURRENT_BRANCH%"=="" (
-  git checkout -b %BRANCH%
-) else (
-  set "BRANCH=%CURRENT_BRANCH%"
-)
+if not "%CURRENT_BRANCH%"=="" set "BRANCH=%CURRENT_BRANCH%"
+if "%CURRENT_BRANCH%"=="" git checkout -b %BRANCH%
 
 git remote get-url origin >nul 2>&1
 if errorlevel 1 (
@@ -43,10 +33,51 @@ if errorlevel 1 (
   git remote set-url origin "%REPO_URL%"
 )
 
-git add -A
-git commit -m "Initial Sip Mind project" || echo Nothing new to commit.
-git push -u origin %BRANCH%
+echo.
+echo [Sip Mind] Running checks before upload...
+call npm test
+if errorlevel 1 (
+  echo Tests failed. Upload cancelled.
+  pause
+  exit /b 1
+)
+
+call npm run build
+if errorlevel 1 (
+  echo Build failed. Upload cancelled.
+  pause
+  exit /b 1
+)
 
 echo.
-echo Upload finished. Branch: %BRANCH%
+echo [Sip Mind] Staging safe project files...
+git add -A
+
+git diff --cached --quiet
+if not errorlevel 1 (
+  echo Nothing new to commit.
+) else (
+  set "COMMIT_MESSAGE=%~2"
+  if "!COMMIT_MESSAGE!"=="" set "COMMIT_MESSAGE=Update Sip Mind"
+  git commit -m "!COMMIT_MESSAGE!"
+  if errorlevel 1 (
+    echo Commit failed. Upload cancelled.
+    pause
+    exit /b 1
+  )
+)
+
+echo.
+echo [Sip Mind] Pushing to GitHub...
+git push -u origin %BRANCH%
+if errorlevel 1 (
+  echo Push failed. Check GitHub login, repo URL, and permissions.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Upload finished successfully.
+echo Repo: %REPO_URL%
+echo Branch: %BRANCH%
 pause

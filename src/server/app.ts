@@ -1,12 +1,13 @@
 import cors from 'cors';
 import express from 'express';
-import { applyRemainingIngredientRules, buildRecommendationPrompt, normalizeRecommendationOutputs, validateRecommendationRequest } from './recommendation';
-import type { createAiProvider } from './aiProvider';
-import type { createDatabase } from './storage';
+import { applyRemainingIngredientRules, buildRecommendationPrompt, normalizeRecommendationOutputs, validateRecommendationRequest } from './recommendation.js';
+import type { createAiProvider } from './aiProvider.js';
+import type { createDatabase } from './storage.js';
 
 type DatabaseApi = ReturnType<typeof createDatabase>;
 type AiProvider = ReturnType<typeof createAiProvider>;
 type CaptchaChallenge = { answer: string; expiresAt: number };
+type AuthenticatedRequest = express.Request & { user?: any; token?: string };
 
 export function parseBasicAuthHeader(header: string | undefined) {
   const match = header?.match(/^Basic\s+(.+)$/i);
@@ -64,6 +65,12 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
   });
 
   const adminAuth: express.RequestHandler = (request, response, next) => {
+    const bearerUser = getBearerUser(request);
+    if (bearerUser?.role === 'admin') {
+      (request as AuthenticatedRequest).user = bearerUser;
+      return next();
+    }
+
     const credentials = parseBasicAuthHeader(request.headers.authorization);
     if (!credentials) {
       return response.status(401).json({ error: 'Admin authorization required' });
@@ -79,35 +86,70 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     next();
   };
 
+  function getBearerToken(request: express.Request) {
+    const match = request.headers.authorization?.match(/^Bearer\s+(.+)$/i);
+    return match?.[1]?.trim() || null;
+  }
+
+  function getBearerUser(request: express.Request) {
+    const token = getBearerToken(request);
+    if (!token) return null;
+    return db.getSessionUser(token);
+  }
+
+  const requireUser: express.RequestHandler = (request, response, next) => {
+    const token = getBearerToken(request);
+    const user = token ? db.getSessionUser(token) : null;
+    if (!token || !user) return response.status(401).json({ error: 'AUTH_REQUIRED' });
+    (request as AuthenticatedRequest).token = token;
+    (request as AuthenticatedRequest).user = user;
+    next();
+  };
+
+  function publicUser(user: any) {
+    return {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      type: user.username ? 'account' : 'invite'
+    };
+  }
+
   app.post('/api/login', (request, response) => {
     const { username, password, inviteCode, captcha } = request.body;
     const ip = getIp(request);
 
     const attempts = db.getLoginAttempts(ip);
     const isAdminCredential = username === (env.ADMIN_USERNAME || 'admin') && password === (env.ADMIN_PASSWORD || 'admin123');
-    if (attempts >= 5 && !captcha && !isAdminCredential) {
+    if (attempts >= 5 && !isAdminCredential && !verifyCaptcha(captcha)) {
       return response.status(403).json({ error: 'CAPTCHA_REQUIRED', message: 'Too many attempts. CAPTCHA required.' });
     }
 
     if (inviteCode) {
       const invite = db.getInviteCodeRecord(inviteCode.toUpperCase());
-      if (!invite) return response.status(401).json({ error: 'Invalid invite code' });
+      if (!invite) {
+        db.recordLoginAttempt(ip);
+        return response.status(401).json({ error: 'Invalid invite code' });
+      }
 
       let user = db.getUserByInviteCode(inviteCode.toUpperCase()) as any;
       if (!user) {
         const id = db.createUser({ invite_code: inviteCode.toUpperCase(), role: 'user' });
         user = { id, invite_code: inviteCode.toUpperCase(), role: 'user' };
       }
-      return response.json({ success: true, user: { id: user.id, role: user.role, type: 'invite' } });
+      const token = db.createSession(user.id);
+      return response.json({ success: true, token, user: publicUser(user) });
     }
 
     if (username && password) {
       const user = db.getUserByUsername(username) as any;
-      if (user && user.password === password) {
-        return response.json({ success: true, user: { id: user.id, username: user.username, role: user.role, type: 'account' } });
+      if (user && db.verifyUserPassword(user, password)) {
+        const token = db.createSession(user.id);
+        return response.json({ success: true, token, user: publicUser(user) });
       }
     }
 
+    db.recordLoginAttempt(ip);
     response.status(401).json({ error: 'Invalid credentials' });
   });
 
@@ -130,7 +172,8 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
 
     try {
       const id = db.createUser({ username: cleanUsername, password: cleanPassword, role: 'user' });
-      response.json({ success: true, user: { id, username: cleanUsername, role: 'user', type: 'account' } });
+      const token = db.createSession(id);
+      response.json({ success: true, token, user: { id, username: cleanUsername, role: 'user', type: 'account' } });
     } catch (error) {
       response.status(409).json({ error: 'USERNAME_EXISTS' });
     }
@@ -140,14 +183,26 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     response.json({ categories: db.getInventoryCategories() });
   });
 
-  app.get('/api/user/data', (request, response) => {
-    const userId = Number(request.query.userId);
-    if (!userId) return response.status(401).send();
+  app.get('/api/food-library/public', (_request, response) => {
+    response.json({ foodLibrary: db.getFoodLibrary(0) });
+  });
+
+  app.get('/api/public/config', (_request, response) => {
+    response.json({
+      daily_limit_guest: db.getConfig('daily_limit_guest') || '10'
+    });
+  });
+
+  app.post('/api/logout', requireUser, (request, response) => {
+    const token = (request as AuthenticatedRequest).token;
+    if (token) db.deleteSession(token);
+    response.json({ success: true });
+  });
+
+  app.get('/api/user/data', requireUser, (request, response) => {
+    const userId = Number((request as AuthenticatedRequest).user.id);
 
     const inventory = db.getInventory(userId);
-    for (const item of inventory as any[]) {
-      db.upsertFoodLibraryItem(userId, item.name, item.category);
-    }
     const foodLibrary = db.getFoodLibrary(userId);
     const favorites = db.getFavorites(userId).map((favorite: any) => ({
       ...favorite,
@@ -159,38 +214,46 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     response.json({ inventory, favorites, foodLibrary });
   });
 
-  app.post('/api/user/inventory', (request, response) => {
-    const { userId, items } = request.body;
+  app.post('/api/user/inventory', requireUser, (request, response) => {
+    const { items } = request.body;
+    const userId = Number((request as AuthenticatedRequest).user.id);
     db.setInventory(userId, items);
     response.json({ success: true });
   });
 
-  app.post('/api/user/favorites', (request, response) => {
-    const { userId, favorite } = request.body;
+  app.post('/api/user/favorites', requireUser, (request, response) => {
+    const { favorite } = request.body;
+    const userId = Number((request as AuthenticatedRequest).user.id);
     const id = db.upsertFavorite(userId, favorite);
     response.json({ success: true, id });
   });
 
-  app.delete('/api/user/favorites/:id', (request, response) => {
-    const userId = Number(request.query.userId);
+  app.delete('/api/user/favorites/:id', requireUser, (request, response) => {
+    const userId = Number((request as AuthenticatedRequest).user.id);
     db.deleteFavorite(userId, Number(request.params.id));
     response.json({ success: true });
   });
 
   app.post('/api/recommendations', async (request, response) => {
-    const { userId, ...requestBody } = request.body;
+    const { userId: _ignoredUserId, deviceId, ...requestBody } = request.body;
     const ip = getIp(request);
+    const user = getBearerUser(request);
+    const userId = user ? Number(user.id) : null;
+    const cleanDeviceId = String(deviceId ?? '').trim().slice(0, 120);
 
-    if (!userId) return response.status(401).json({ error: 'Registration required to generate recipes' });
+    const globalCount = db.getDailyGlobalGenerationCount();
+    const globalLimit = Number(db.getConfig('daily_limit_global') || 200);
+    if (globalCount >= globalLimit) return response.status(429).json({ error: 'GLOBAL_DAILY_LIMIT_REACHED' });
 
-    const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
-    if (!user) return response.status(401).send();
-
-    const count = db.getDailyGenerationCount(userId, ip);
-    if (user.role !== 'admin') {
-      const limitKey = user.username ? 'daily_limit_account' : 'daily_limit_invite';
-      const limit = Number(db.getConfig(limitKey) || 10);
-      if (count >= limit) return response.status(429).json({ error: 'DAILY_LIMIT_REACHED' });
+    if (userId) {
+      const count = db.getDailyGenerationCount(userId, ip);
+      const userLimit = Number(db.getConfig('daily_limit_user') || 50);
+      if (count >= userLimit) return response.status(429).json({ error: 'USER_DAILY_LIMIT_REACHED' });
+    } else {
+      if (!cleanDeviceId) return response.status(400).json({ error: 'DEVICE_ID_REQUIRED' });
+      const count = db.getDailyGuestGenerationCount(ip, cleanDeviceId);
+      const guestLimit = Number(db.getConfig('daily_limit_guest') || 10);
+      if (count >= guestLimit) return response.status(429).json({ error: 'GUEST_DAILY_LIMIT_REACHED' });
     }
 
     const result = validateRecommendationRequest(requestBody);
@@ -206,7 +269,7 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
         prompt,
         recommendations
       });
-      db.logGeneration(userId, ip);
+      db.logGeneration(userId, ip, userId ? null : cleanDeviceId);
       response.json(warning ? { recommendations, warning } : { recommendations });
     };
 
@@ -227,16 +290,17 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     }
   });
 
-  app.get('/api/admin/config', (request, response) => {
+  app.get('/api/admin/config', adminAuth, (request, response) => {
     response.json({
-      daily_limit_ip: db.getConfig('daily_limit_ip'),
-      daily_limit_account: db.getConfig('daily_limit_account'),
-      daily_limit_invite: db.getConfig('daily_limit_invite')
+      daily_limit_global: db.getConfig('daily_limit_global') || '200',
+      daily_limit_user: db.getConfig('daily_limit_user') || '50',
+      daily_limit_guest: db.getConfig('daily_limit_guest') || '10'
     });
   });
 
-  app.post('/api/admin/config', (request, response) => {
+  app.post('/api/admin/config', adminAuth, (request, response) => {
     for (const [key, value] of Object.entries(request.body)) {
+      if (!['daily_limit_global', 'daily_limit_user', 'daily_limit_guest'].includes(key)) continue;
       db.setConfig(key, String(value));
     }
     response.json({ success: true });
@@ -260,7 +324,10 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
 
   app.post('/api/admin/inventory/categories', adminAuth, (request, response) => {
     try {
-      const name = db.addInventoryCategory(String(request.body.name ?? ''));
+      const name = db.addInventoryCategory({
+        label_zh: String(request.body.label_zh ?? request.body.zh ?? request.body.name ?? ''),
+        label_en: String(request.body.label_en ?? request.body.en ?? request.body.name ?? '')
+      });
       response.json({ success: true, name, categories: db.getInventoryCategories() });
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : 'Invalid category' });

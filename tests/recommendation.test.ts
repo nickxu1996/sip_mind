@@ -91,6 +91,19 @@ describe('recommendation prompt builder', () => {
     expect(prompt).toContain('Score total from 0 to 100');
     expect(prompt).toContain('If a drink contains both coffee/caffeine and alcohol, use the alcoholic drink dimension labels.');
   });
+
+  it('requires user-facing AI output to follow the selected language', () => {
+    const prompt = buildRecommendationPrompt({
+      ...baseRequest,
+      language: 'zh'
+    });
+
+    expect(prompt).toContain('Response language: Simplified Chinese.');
+    expect(prompt).toContain('All user-facing JSON string values must be written in Simplified Chinese');
+    expect(prompt).toContain('Only these metadata enum values stay in English');
+    expect(prompt).toContain('甜度平衡');
+    expect(prompt).toContain('酒精感平衡');
+  });
 });
 
 describe('recommendation output normalization', () => {
