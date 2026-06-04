@@ -134,6 +134,15 @@ button { cursor: pointer; }
   color: #333;
 }
 
+.section-index {
+  display: inline-block;
+  min-width: 1.35rem;
+  margin-right: 0.25rem;
+  color: #0f766e;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 800;
+}
+
 .guest-limit-note {
   position: absolute;
   left: 50%;

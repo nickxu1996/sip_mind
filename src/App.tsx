@@ -1157,7 +1157,7 @@ export function App() {
         <section className="inventory-strip">
           <div className="section-heading">
             <div className="inventory-heading-main">
-              <h2>{t.inventory}</h2>
+              <h2><span className="section-index">1.</span>{t.inventory}</h2>
               <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
             <div className="inventory-heading-side">
@@ -1227,7 +1227,7 @@ export function App() {
       <div className="content-grid">
          <aside className="panel settings-panel">
             <div className="section-heading">
-              <h2>{t.preferences}</h2>
+              <h2><span className="section-index">2.</span>{t.preferences}</h2>
               <button type="button" className="text-button" onClick={randomize}>{t.randomize}</button>
             </div>
             <div className="form-grid">
@@ -1256,7 +1256,7 @@ export function App() {
          </aside>
 
          <section className="panel main-panel">
-            <h2>{t.generate}</h2>
+            <h2><span className="section-index">3.</span>{t.generate}</h2>
             <div className="results-area">
                {recommendations.length === 0 && <p className="placeholder-text">{t.recommendationPlaceholder}</p>}
                {recommendations.map((rec, i) => (
@@ -1355,7 +1355,7 @@ export function App() {
          </section>
 
          <aside className="panel history-panel">
-            <h2>{t.favorites}</h2>
+            <h2><span className="section-index">4.</span>{t.favorites}</h2>
             <div className="history-list">
                {favorites.map(f => (
                   <div key={f.id} className="history-item">
