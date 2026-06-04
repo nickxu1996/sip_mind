@@ -230,6 +230,8 @@ export function createDatabase(dbPath: string) {
     INSERT OR IGNORE INTO config (key, value) VALUES ('daily_limit_global', '200');
     INSERT OR IGNORE INTO config (key, value) VALUES ('daily_limit_user', '50');
     INSERT OR IGNORE INTO config (key, value) VALUES ('daily_limit_guest', '10');
+    INSERT OR IGNORE INTO config (key, value) VALUES ('daily_limit_contact_global', '10');
+    INSERT OR IGNORE INTO config (key, value) VALUES ('daily_limit_contact_user', '3');
 
     CREATE TABLE IF NOT EXISTS inventory_categories (
       name TEXT PRIMARY KEY,
@@ -266,6 +268,13 @@ export function createDatabase(dbPath: string) {
       user_id INTEGER,
       ip TEXT,
       device_id TEXT,
+      created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      ip TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
     );
   `);
@@ -587,6 +596,19 @@ export function createDatabase(dbPath: string) {
           AND COALESCE(device_id, '') = ?
           AND date(created_at) = date('now', 'localtime')
       `).get(ip, deviceId) as any;
+      return row.c;
+    },
+    logContactSubmission(userId: number | null, ip: string) {
+      db.prepare('INSERT INTO contact_submissions (user_id, ip) VALUES (?, ?)').run(userId, ip);
+    },
+    getDailyGlobalContactCount() {
+      const row = db.prepare("SELECT count(*) as c FROM contact_submissions WHERE date(created_at) = date('now', 'localtime')").get() as any;
+      return row.c;
+    },
+    getDailyContactCount(userId: number | null, ip: string) {
+      const row = userId
+        ? db.prepare("SELECT count(*) as c FROM contact_submissions WHERE user_id = ? AND date(created_at) = date('now', 'localtime')").get(userId) as any
+        : db.prepare("SELECT count(*) as c FROM contact_submissions WHERE user_id IS NULL AND ip = ? AND date(created_at) = date('now', 'localtime')").get(ip) as any;
       return row.c;
     },
 

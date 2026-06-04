@@ -277,7 +277,13 @@ export function App() {
   const [introTexts, setIntroTexts] = useState<Record<Language, string>>(() => readStoredTextDrafts(readStoredIntroText));
   const [introTextDrafts, setIntroTextDrafts] = useState<Record<Language, string>>(() => readStoredTextDrafts(readStoredIntroText));
   const [deviceId] = useState(readOrCreateDeviceId);
-  const [generationLimits, setGenerationLimits] = useState({ daily_limit_global: '200', daily_limit_user: '50', daily_limit_guest: '10' });
+  const [generationLimits, setGenerationLimits] = useState({
+    daily_limit_global: '200',
+    daily_limit_user: '50',
+    daily_limit_guest: '10',
+    daily_limit_contact_global: '10',
+    daily_limit_contact_user: '3'
+  });
   const [guestDailyLimit, setGuestDailyLimit] = useState('10');
   const inventoryLanesRef = useRef<HTMLDivElement | null>(null);
   const [inventoryLanesHeight, setInventoryLanesHeight] = useState(0);
@@ -842,7 +848,9 @@ export function App() {
       setGenerationLimits({
         daily_limit_global: String(data.daily_limit_global ?? '200'),
         daily_limit_user: String(data.daily_limit_user ?? '50'),
-        daily_limit_guest: String(data.daily_limit_guest ?? '10')
+        daily_limit_guest: String(data.daily_limit_guest ?? '10'),
+        daily_limit_contact_global: String(data.daily_limit_contact_global ?? '10'),
+        daily_limit_contact_user: String(data.daily_limit_contact_user ?? '3')
       });
     }
   }
@@ -1146,6 +1154,24 @@ export function App() {
                             min="0"
                             value={generationLimits.daily_limit_guest}
                             onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_guest: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          <span>{language === 'en' ? 'Contact site' : '联系全站'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={generationLimits.daily_limit_contact_global}
+                            onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_contact_global: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          <span>{language === 'en' ? 'Contact user/IP' : '联系用户/IP'}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={generationLimits.daily_limit_contact_user}
+                            onChange={e => setGenerationLimits(prev => ({ ...prev, daily_limit_contact_user: e.target.value }))}
                           />
                         </label>
                       </div>

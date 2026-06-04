@@ -9,7 +9,6 @@ type DatabaseApi = ReturnType<typeof createDatabase>;
 type AiProvider = ReturnType<typeof createAiProvider>;
 type CaptchaChallenge = { answer: string; expiresAt: number };
 type AuthenticatedRequest = express.Request & { user?: any; token?: string };
-type ContactRateRecord = { count: number; resetAt: number };
 
 export function parseBasicAuthHeader(header: string | undefined) {
   const match = header?.match(/^Basic\s+(.+)$/i);
@@ -31,7 +30,6 @@ export function parseBasicAuthHeader(header: string | undefined) {
 export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, string | undefined> = process.env) {
   const app = express();
   const captchaChallenges = new Map<string, CaptchaChallenge>();
-  const contactRateLimits = new Map<string, ContactRateRecord>();
 
   app.use(cors());
   app.use(express.json());
@@ -69,14 +67,16 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
 
   app.post('/api/contact', async (request, response) => {
     const ip = getIp(request);
-    const now = Date.now();
-    const rate = contactRateLimits.get(ip);
-    if (rate && rate.resetAt > now && rate.count >= 5) {
-      return response.status(429).json({ error: 'CONTACT_RATE_LIMITED' });
+    const user = getBearerUser(request);
+    const userId = user ? Number(user.id) : null;
+    const globalLimit = Number(db.getConfig('daily_limit_contact_global') || 10);
+    const userLimit = Number(db.getConfig('daily_limit_contact_user') || 3);
+    if (globalLimit >= 0 && db.getDailyGlobalContactCount() >= globalLimit) {
+      return response.status(429).json({ error: 'CONTACT_GLOBAL_DAILY_LIMIT_REACHED' });
     }
-    contactRateLimits.set(ip, rate && rate.resetAt > now
-      ? { count: rate.count + 1, resetAt: rate.resetAt }
-      : { count: 1, resetAt: now + 60 * 60 * 1000 });
+    if (userLimit >= 0 && db.getDailyContactCount(userId, ip) >= userLimit) {
+      return response.status(429).json({ error: 'CONTACT_USER_DAILY_LIMIT_REACHED' });
+    }
 
     const message = String(request.body?.message ?? '').trim();
     const contactInfo = String(request.body?.contactInfo ?? '').trim();
@@ -86,20 +86,20 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     if (contactInfo.length > 300) return response.status(400).json({ error: 'CONTACT_TOO_LONG' });
 
     const host = env.SMTP_HOST;
-    const user = env.SMTP_USER;
+    const smtpUser = env.SMTP_USER;
     const pass = env.SMTP_PASS;
-    if (!host || !user || !pass) {
+    if (!host || !smtpUser || !pass) {
       return response.status(503).json({ error: 'CONTACT_NOT_CONFIGURED' });
     }
 
     const port = Number(env.SMTP_PORT || 587);
     const to = env.CONTACT_TO_EMAIL || 'nickxu1996@gmail.com';
-    const from = env.SMTP_FROM || user;
+    const from = env.SMTP_FROM || smtpUser;
     const transporter = nodemailer.createTransport({
       host,
       port,
       secure: port === 465,
-      auth: { user, pass }
+      auth: { user: smtpUser, pass }
     });
 
     await transporter.sendMail({
@@ -116,6 +116,7 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
         message
       ].join('\n')
     });
+    db.logContactSubmission(userId, ip);
     response.json({ success: true });
   });
 
@@ -349,13 +350,15 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
     response.json({
       daily_limit_global: db.getConfig('daily_limit_global') || '200',
       daily_limit_user: db.getConfig('daily_limit_user') || '50',
-      daily_limit_guest: db.getConfig('daily_limit_guest') || '10'
+      daily_limit_guest: db.getConfig('daily_limit_guest') || '10',
+      daily_limit_contact_global: db.getConfig('daily_limit_contact_global') || '10',
+      daily_limit_contact_user: db.getConfig('daily_limit_contact_user') || '3'
     });
   });
 
   app.post('/api/admin/config', adminAuth, (request, response) => {
     for (const [key, value] of Object.entries(request.body)) {
-      if (!['daily_limit_global', 'daily_limit_user', 'daily_limit_guest'].includes(key)) continue;
+      if (!['daily_limit_global', 'daily_limit_user', 'daily_limit_guest', 'daily_limit_contact_global', 'daily_limit_contact_user'].includes(key)) continue;
       db.setConfig(key, String(value));
     }
     response.json({ success: true });
