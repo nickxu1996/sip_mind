@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+﻿import { useMemo, useState, useEffect, useRef } from 'react';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { en } from './i18n/en';
 import { zh } from './i18n/zh';
@@ -14,14 +14,14 @@ type PreferenceKey = 'alcohol' | 'caffeine' | 'temperature' | 'calories';
 type OptionKey = 'any' | 'high' | 'low' | 'none' | 'hot' | 'room' | 'cold' | 'medium' | 'very-low';
 
 const defaultCategories: InventoryCategory[] = [
-  { name: 'coffee', label_zh: '咖啡', label_en: 'Coffee' },
-  { name: 'alcohol', label_zh: '酒类', label_en: 'Alcohol' },
-  { name: 'soft', label_zh: '软饮', label_en: 'Soft Drinks' },
-  { name: 'milk', label_zh: '奶类', label_en: 'Dairy' },
-  { name: 'powder', label_zh: '粉末', label_en: 'Powder' },
-  { name: 'fruit', label_zh: '水果', label_en: 'Fruit' },
-  { name: 'tea', label_zh: '茶', label_en: 'Tea' },
-  { name: 'uncategorized', label_zh: '未分类', label_en: 'Uncategorized' }
+  { name: 'coffee', label_zh: '\u5496\u5561', label_en: 'Coffee' },
+  { name: 'alcohol', label_zh: '\u9152\u7c7b', label_en: 'Alcohol' },
+  { name: 'soft', label_zh: '\u8f6f\u996e', label_en: 'Soft Drinks' },
+  { name: 'milk', label_zh: '\u5976\u7c7b', label_en: 'Dairy' },
+  { name: 'powder', label_zh: '\u7c89\u672b', label_en: 'Powder' },
+  { name: 'fruit', label_zh: '\u6c34\u679c', label_en: 'Fruit' },
+  { name: 'tea', label_zh: '\u8336', label_en: 'Tea' },
+  { name: 'uncategorized', label_zh: '\u672a\u5206\u7c7b', label_en: 'Uncategorized' }
 ];
 const authStorageKey = 'sip_mind_user';
 const deviceStorageKey = 'sip_mind_device_id';
@@ -31,11 +31,11 @@ const foodHintStoragePrefix = 'sip_mind_food_hint';
 const preferencesStoragePrefix = 'sip_mind_preferences';
 const introTextStoragePrefix = 'sip_mind_intro_text';
 const defaultIntroTexts: Record<Language, string> = {
-  zh: '选择家中库存和偏好，智能推荐饮品配方。',
+  zh: '\u9009\u62e9\u5bb6\u4e2d\u5e93\u5b58\u548c\u504f\u597d\uff0c\u667a\u80fd\u63a8\u8350\u996e\u54c1\u914d\u65b9\u3002',
   en: 'Choose your home inventory and preferences for smart drink recipe recommendations.'
 };
 const defaultFoodHintTexts: Record<Language, string> = {
-  zh: '单击库存会设为 AI 每个推荐都必须包含的原料；双击可修改，按住可拖动。\n点击食品库即可轻松选择。',
+  zh: '\u5355\u51fb\u5e93\u5b58\u4f1a\u8bbe\u4e3a AI \u6bcf\u4e2a\u63a8\u8350\u90fd\u5fc5\u987b\u5305\u542b\u7684\u539f\u6599\uff1b\u53cc\u51fb\u53ef\u4fee\u6539\uff0c\u6309\u4f4f\u53ef\u62d6\u52a8\u3002\n\u70b9\u51fb\u98df\u54c1\u5e93\u5373\u53ef\u8f7b\u677e\u9009\u62e9\u3002',
   en: 'Click inventory to require it in every AI recommendation. Double-click to edit; hold and drag to move.\nClick the food library to choose quickly.'
 };
 let apiReadyPromise: Promise<void> | null = null;
@@ -332,15 +332,15 @@ export function App() {
       kcal: 'kcal'
     }
     : {
-      save: '收藏',
-      calories: '热量',
-      caffeine: '咖啡因',
-      alcohol: '酒精',
-      temperature: '温度',
-      score: '分数',
-      intro: '简介',
-      ingredients: '原料',
-      steps: '做法',
+      save: '\u6536\u85cf',
+      calories: '\u70ed\u91cf',
+      caffeine: '\u5496\u5561\u56e0',
+      alcohol: '\u9152\u7cbe',
+      temperature: '\u6e29\u5ea6',
+      score: '\u5206\u6570',
+      intro: '\u7b80\u4ecb',
+      ingredients: '\u539f\u6599',
+      steps: '\u505a\u6cd5',
       kcal: 'kcal'
     };
 
@@ -379,39 +379,38 @@ export function App() {
       kcal: 'kcal'
     }
     : {
-      foodLibrary: '食品库',
-      foodHint: '单击库存会设为 AI 每个推荐都必须包含的原料；双击可修改，按住可拖动。',
-      foodHintSecond: '点击食品库即可轻松选择。',
-      foodHintSettings: '食品库下方说明',
-      introTextSettings: '介绍文字',
-      saveIntroText: '保存介绍',
-      resetIntroText: '恢复默认',
-      saveFoodHint: '保存说明',
-      resetFoodHint: '恢复默认',
-      clearFoodLibrary: '清空食品库',
-      shareFoodLibrary: '我同意将该食品共享到公开食品库',
-      shareFoodLibraryHint: '。若不勾选，则只出现在个人食品库。',
-      guestDailyLimit: (count: string) => `未登录用户每日可免费生成${count}次`,
-      independentDrinks: '独立饮品：各选项之间食材独立',
-      ignoreInventory: '无视库存：将会随机生成饮品，不考虑库存情况',
-      ignoreInventoryAuto: '库存产品少于 3 个时会自动按此规则生成。',
-      useRemaining: '利用剩余食材',
-      selected: '已选择',
-      selectLeftovers: '选择剩余',
-      noMeasurableLeftovers: '无可计量剩余',
-      remaining: '剩余原料',
-      save: '收藏',
-      calories: '热量',
-      caffeine: '咖啡因',
-      alcohol: '酒精',
-      temperature: '温度',
-      score: '分数',
-      intro: '简介',
-      ingredients: '原料',
-      steps: '做法',
+      foodLibrary: '\u98df\u54c1\u5e93',
+      foodHint: '\u5355\u51fb\u5e93\u5b58\u4f1a\u8bbe\u4e3a AI \u6bcf\u4e2a\u63a8\u8350\u90fd\u5fc5\u987b\u5305\u542b\u7684\u539f\u6599\uff1b\u53cc\u51fb\u53ef\u4fee\u6539\uff0c\u6309\u4f4f\u53ef\u62d6\u52a8\u3002',
+      foodHintSecond: '\u70b9\u51fb\u98df\u54c1\u5e93\u5373\u53ef\u8f7b\u677e\u9009\u62e9\u3002',
+      foodHintSettings: '\u98df\u54c1\u5e93\u4e0b\u65b9\u8bf4\u660e',
+      introTextSettings: '\u4ecb\u7ecd\u6587\u5b57',
+      saveIntroText: '\u4fdd\u5b58\u4ecb\u7ecd',
+      resetIntroText: '\u6062\u590d\u9ed8\u8ba4',
+      saveFoodHint: '\u4fdd\u5b58\u8bf4\u660e',
+      resetFoodHint: '\u6062\u590d\u9ed8\u8ba4',
+      clearFoodLibrary: '\u6e05\u7a7a\u98df\u54c1\u5e93',
+      shareFoodLibrary: '\u6211\u540c\u610f\u5c06\u8be5\u98df\u54c1\u5171\u4eab\u5230\u516c\u5f00\u98df\u54c1\u5e93\u3002',
+      shareFoodLibraryHint: '\u82e5\u4e0d\u52fe\u9009\uff0c\u5219\u53ea\u51fa\u73b0\u5728\u4e2a\u4eba\u98df\u54c1\u5e93\u3002',
+      guestDailyLimit: (count: string) => `\u672a\u767b\u5f55\u7528\u6237\u6bcf\u65e5\u53ef\u514d\u8d39\u751f\u6210${count}\u6b21`,
+      independentDrinks: '\u72ec\u7acb\u996e\u54c1\uff1a\u5404\u9009\u9879\u4e4b\u95f4\u98df\u6750\u72ec\u7acb',
+      ignoreInventory: '\u65e0\u89c6\u5e93\u5b58\uff1a\u4e0d\u8003\u8651\u5e93\u5b58\u60c5\u51b5\u968f\u673a\u751f\u6210',
+      ignoreInventoryAuto: '\u5e93\u5b58\u4ea7\u54c1\u5c11\u4e8e 3 \u4e2a\u65f6\u4f1a\u81ea\u52a8\u6309\u6b64\u89c4\u5219\u751f\u6210\u3002',
+      useRemaining: '\u5229\u7528\u5269\u4f59\u98df\u6750',
+      selected: '\u5df2\u9009\u62e9',
+      selectLeftovers: '\u9009\u62e9\u5269\u4f59',
+      noMeasurableLeftovers: '\u65e0\u53ef\u8ba1\u91cf\u5269\u4f59',
+      remaining: '\u5269\u4f59\u539f\u6599',
+      save: '\u6536\u85cf',
+      calories: '\u70ed\u91cf',
+      caffeine: '\u5496\u5561\u56e0',
+      alcohol: '\u9152\u7cbe',
+      temperature: '\u6e29\u5ea6',
+      score: '\u5206\u6570',
+      intro: '\u7b80\u4ecb',
+      ingredients: '\u539f\u6599',
+      steps: '\u505a\u6cd5',
       kcal: 'kcal'
-    };
-  const foodHintText = foodHintOverride?.text ?? defaultFoodHintTexts[language];
+    };  const foodHintText = foodHintOverride?.text ?? defaultFoodHintTexts[language];
   const introText = introTexts[language] ?? defaultIntroTexts[language];
   const hasMeasurableInventory = inventory.some(item => item.amount !== undefined);
   const autoIgnoreInventory = inventory.length < 3;
@@ -429,17 +428,15 @@ export function App() {
       failed: 'Contact is not configured yet.'
     }
     : {
-      action: '联系我们',
-      title: '联系我们',
-      message: '留言',
-      info: '如果你希望收到我们的回复，请留下联系方式',
-      optional: '选填',
-      send: '发送',
-      sent: '已发送，谢谢。',
-      failed: '联系功能暂未配置。'
-    };
-
-  const sensors = useSensors(
+      action: '\u8054\u7cfb\u6211\u4eec',
+      title: '\u8054\u7cfb\u6211\u4eec',
+      message: '\u7559\u8a00',
+      info: '\u5982\u679c\u4f60\u5e0c\u671b\u6536\u5230\u6211\u4eec\u7684\u56de\u590d\uff0c\u8bf7\u7559\u4e0b\u8054\u7cfb\u65b9\u5f0f',
+      optional: '\u53ef\u9009',
+      send: '\u53d1\u9001',
+      sent: '\u5df2\u53d1\u9001\uff0c\u8c22\u8c22\u3002',
+      failed: '\u8054\u7cfb\u529f\u80fd\u6682\u672a\u914d\u7f6e\u3002'
+    };  const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
@@ -610,7 +607,7 @@ export function App() {
 
   async function handleRegister() {
     if (loginPassword !== registerConfirmPassword) {
-      alert(language === 'en' ? 'Passwords do not match.' : '两次输入的密码不一致。');
+      alert(language === 'en' ? 'Passwords do not match.' : '\u4e24\u6b21\u8f93\u5165\u7684\u5bc6\u7801\u4e0d\u4e00\u81f4\u3002');
       return;
     }
 
@@ -638,10 +635,10 @@ export function App() {
     const data = await res.json().catch(() => null);
     if (res.status === 403 && data?.captchaRequired) {
       await fetchCaptchaChallenge();
-      alert(language === 'en' ? 'Please complete the verification code.' : '请完成验证码。');
+      alert(language === 'en' ? 'Please complete the verification code.' : '\u8bf7\u5b8c\u6210\u9a8c\u8bc1\u7801\u3002');
       return;
     }
-    alert(data?.error ?? (language === 'en' ? 'Registration failed.' : '注册失败。'));
+    alert(data?.error ?? (language === 'en' ? 'Registration failed.' : '\u6ce8\u518c\u5931\u8d25\u3002'));
   }
 
   async function addInventoryCategory() {
@@ -677,7 +674,7 @@ export function App() {
       fetchUserData();
     } else {
       const data = await res.json().catch(() => null);
-      alert(data?.error ?? (language === 'en' ? 'Category delete failed' : '删除分类失败'));
+      alert(data?.error ?? (language === 'en' ? 'Category delete failed' : '\u5220\u9664\u5206\u7c7b\u5931\u8d25'));
     }
   }
 
@@ -686,7 +683,7 @@ export function App() {
     if (!loginUsername || !loginPassword) {
       setAuthTab('account');
       setShowLogin(true);
-      alert(language === 'en' ? 'Please sign in again as admin.' : '请重新以管理员身份登录。');
+      alert(language === 'en' ? 'Please sign in again as admin.' : '\u8bf7\u91cd\u65b0\u4ee5\u7ba1\u7406\u5458\u8eab\u4efd\u767b\u5f55\u3002');
       return null;
     }
 
@@ -749,10 +746,10 @@ export function App() {
 
   async function generateRecommendations() {
     setLoading(true);
-    setGenerationStatus(language === 'zh' ? '正在验证输入...' : 'Validating input...');
+    setGenerationStatus(language === 'zh' ? '\u6b63\u5728\u9a8c\u8bc1\u8f93\u5165...' : 'Validating input...');
     try {
       await nextPaint();
-      setGenerationStatus(language === 'zh' ? '正在调用 AI...' : 'Calling AI...');
+      setGenerationStatus(language === 'zh' ? '\u6b63\u5728\u8c03\u7528 AI...' : 'Calling AI...');
       const res = await fetch('/api/recommendations', {
         method: 'POST',
         headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
@@ -765,24 +762,24 @@ export function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setGenerationStatus(language === 'zh' ? '正在保存历史...' : 'Saving history...');
+        setGenerationStatus(language === 'zh' ? '\u6b63\u5728\u4fdd\u5b58\u5386\u53f2...' : 'Saving history...');
         await nextPaint();
         setRecommendations(data.recommendations);
         setLeftoverRecommendations([]);
         setSelectedRecommendationIds([]);
         if (user) storeRecommendations(user.id, data.recommendations);
-        setGenerationStatus(language === 'zh' ? '完成' : 'Done');
+        setGenerationStatus(language === 'zh' ? '\u5b8c\u6210' : 'Done');
       } else if (res.status === 429) {
-        setGenerationStatus(language === 'zh' ? '错误：已达到今日生成上限' : 'Error: daily limit reached');
+        setGenerationStatus(language === 'zh' ? '\u9519\u8bef\uff1a\u5df2\u8fbe\u5230\u4eca\u65e5\u751f\u6210\u4e0a\u9650' : 'Error: daily limit reached');
         alert('Limit reached');
       } else {
         const data = await res.json().catch(() => null);
         console.error('Recommendation generation failed', { status: res.status, body: data });
-        setGenerationStatus(data?.message ? `Error: ${data.message}` : data?.error ? `Error: ${data.error}` : (language === 'zh' ? '错误：生成失败' : 'Error: generation failed'));
+        setGenerationStatus(data?.message ? 'Error: ' + data.message : data?.error ? 'Error: ' + data.error : (language === 'zh' ? '\u9519\u8bef\uff1a\u751f\u6210\u5931\u8d25' : 'Error: generation failed'));
       }
     } catch (e) {
       console.error(e);
-      setGenerationStatus(language === 'zh' ? '错误：网络或服务异常' : 'Error: network or service failure');
+      setGenerationStatus(language === 'zh' ? '\u9519\u8bef\uff1a\u7f51\u7edc\u6216\u670d\u52a1\u5f02\u5e38' : 'Error: network or service failure');
     } finally {
       setLoading(false);
     }
@@ -938,7 +935,7 @@ export function App() {
     if (leftoverInventory.length === 0) return;
 
     setLoading(true);
-    setGenerationStatus(language === 'zh' ? '正在利用剩余食材...' : 'Using remaining ingredients...');
+    setGenerationStatus(language === 'zh' ? '\u6b63\u5728\u5229\u7528\u5269\u4f59\u98df\u6750...' : 'Using remaining ingredients...');
     try {
       const res = await fetch('/api/recommendations', {
         method: 'POST',
@@ -953,10 +950,10 @@ export function App() {
       if (res.ok) {
         const data = await res.json();
         setLeftoverRecommendations(data.recommendations);
-        setGenerationStatus(language === 'zh' ? '完成' : 'Done');
+        setGenerationStatus(language === 'zh' ? '\u5b8c\u6210' : 'Done');
       } else {
         const data = await res.json().catch(() => null);
-        setGenerationStatus(data?.message ? `Error: ${data.message}` : data?.error ? `Error: ${data.error}` : (language === 'zh' ? '生成失败' : 'Generation failed'));
+        setGenerationStatus(data?.message ? `Error: ${data.message}` : data?.error ? `Error: ${data.error}` : (language === 'zh' ? '\u751f\u6210\u5931\u8d25' : 'Generation failed'));
       }
     } finally {
       setLoading(false);
@@ -965,7 +962,7 @@ export function App() {
 
   async function submitContact() {
     if (!contactMessage.trim()) return;
-    setContactStatus(language === 'en' ? 'Sending...' : '正在发送...');
+    setContactStatus(language === 'en' ? 'Sending...' : '\u6b63\u5728\u53d1\u9001...');
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
@@ -992,7 +989,7 @@ export function App() {
           <div className="brand-title-line">
             <div className="brand-name-stack">
               <h1>Sip Mind</h1>
-              <strong>杯中灵感</strong>
+              <strong>\u676f\u4e2d\u7075\u611f</strong>
             </div>
             <p>{introText}</p>
           </div>
@@ -1009,12 +1006,6 @@ export function App() {
             <span className={language === 'en' ? 'active' : ''}>En</span>
           </button>
           <button onClick={() => setShowContact(true)}>{contactLabels.action}</button>
-          <label>{t.language}
-            <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-              <option value="en">English</option>
-              <option value="zh">中文</option>
-            </select>
-          </label>
           {user ? <button onClick={logout}>{user.username || t.inviteCode} ({t.logout})</button> : <button onClick={() => setShowLogin(true)}>{t.login}</button>}
           <button onClick={() => setShowSettings(true)}>{t.settings}</button>
         </div>
@@ -1050,7 +1041,7 @@ export function App() {
               <div className="auth-tabs">
                  <button className={`auth-tab ${authTab === 'account' ? 'active' : ''}`} onClick={() => setAuthTab('account')}>{t.loginTabAccount}</button>
                  <button className={`auth-tab ${authTab === 'invite' ? 'active' : ''}`} onClick={() => setAuthTab('invite')}>{t.loginTabInvite}</button>
-                 <button className={`auth-tab ${authTab === 'register' ? 'active' : ''}`} onClick={() => setAuthTab('register')}>{language === 'en' ? 'Register' : '注册'}</button>
+                  <button className={`auth-tab ${authTab === 'register' ? 'active' : ''}`} onClick={() => setAuthTab('register')}>{language === 'en' ? 'Register' : '\u6ce8\u518c'}</button>
               </div>
               <div className="form-grid">
                  {authTab === 'account' || authTab === 'register' ? (
@@ -1059,22 +1050,22 @@ export function App() {
                        <label>{t.password}
                          <span className="password-field">
                            <input type={showLoginPassword ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-                           <button type="button" onClick={() => setShowLoginPassword(prev => !prev)}>{showLoginPassword ? (language === 'en' ? 'Hide' : '隐藏') : (language === 'en' ? 'Show' : '显示')}</button>
+                           <button type="button" onClick={() => setShowLoginPassword(prev => !prev)}>{showLoginPassword ? (language === 'en' ? 'Hide' : '\u9690\u85cf') : (language === 'en' ? 'Show' : '\u663e\u793a')}</button>
                          </span>
                        </label>
                        {authTab === 'register' && (
                          <>
-                           <label>{language === 'en' ? 'Confirm password' : '确认密码'}
+                           <label>{language === 'en' ? 'Confirm password' : '\u786e\u8ba4\u5bc6\u7801'}
                              <span className="password-field">
                                <input type={showConfirmPassword ? 'text' : 'password'} value={registerConfirmPassword} onChange={e => setRegisterConfirmPassword(e.target.value)} />
-                               <button type="button" onClick={() => setShowConfirmPassword(prev => !prev)}>{showConfirmPassword ? (language === 'en' ? 'Hide' : '隐藏') : (language === 'en' ? 'Show' : '显示')}</button>
+                               <button type="button" onClick={() => setShowConfirmPassword(prev => !prev)}>{showConfirmPassword ? (language === 'en' ? 'Hide' : '\u9690\u85cf') : (language === 'en' ? 'Show' : '\u663e\u793a')}</button>
                              </span>
                            </label>
                            {captchaChallenge && (
-                             <label>{language === 'en' ? 'Verification code' : '验证码'}
+                              <label>{language === 'en' ? 'Verification code' : '\u9a8c\u8bc1\u7801'}
                                <span className="captcha-question">{captchaChallenge.question}</span>
                                <input value={captchaAnswer} onChange={e => setCaptchaAnswer(e.target.value)} />
-                               <button type="button" className="text-button" onClick={fetchCaptchaChallenge}>{language === 'en' ? 'Refresh' : '刷新'}</button>
+                               <button type="button" className="text-button" onClick={fetchCaptchaChallenge}>{language === 'en' ? 'Refresh' : '\u5237\u65b0'}</button>
                              </label>
                            )}
                          </>
@@ -1095,28 +1086,28 @@ export function App() {
            <div className="modal settings-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-title-row">
                 <h2>{t.settings}</h2>
-                <button className="modal-close-button" onClick={() => setShowSettings(false)} aria-label={t.close}>×</button>
+                <button className="modal-close-button" onClick={() => setShowSettings(false)} aria-label={t.close}>x</button>
               </div>
               {user?.role === 'admin' ? (
                  <div className="admin-zone">
                     <section className="settings-section">
                       <div className="settings-section-heading">
-                        <h3>{language === 'en' ? 'Invite Codes' : '邀请码'}</h3>
+                        <h3>{language === 'en' ? 'Invite Codes' : '\u9080\u8bf7\u7801'}</h3>
                       </div>
                       <button onClick={generateInviteCode}>{t.generateInvite}</button>
                       {lastInviteCode && (
                         <div className="invite-code-latest">
-                          <span>{language === 'en' ? 'New invite code' : '新邀请码'}</span>
+                          <span>{language === 'en' ? 'New invite code' : '\u65b0\u9080\u8bf7\u7801'}</span>
                           <strong>{lastInviteCode}</strong>
                         </div>
                       )}
                       <div className="invite-code-list">
-                         {inviteCodes.length === 0 && <div className="invite-code-empty">{language === 'en' ? 'No invite codes yet.' : '暂无邀请码'}</div>}
+                         {inviteCodes.length === 0 && <div className="invite-code-empty">{language === 'en' ? 'No invite codes yet.' : '\u6682\u65e0\u9080\u8bf7\u7801'}</div>}
                          {inviteCodes.map(c => (
                            <div key={c.code} className="invite-code-row">
                              <strong>{c.code}</strong>
                              <span>{c.created_at}</span>
-                             <span>{c.is_used ? (language === 'en' ? 'Used' : '已使用') : (language === 'en' ? 'Available' : '可用')}</span>
+                              <span>{c.is_used ? (language === 'en' ? 'Used' : '\u5df2\u4f7f\u7528') : (language === 'en' ? 'Available' : '\u53ef\u7528')}</span>
                            </div>
                          ))}
                       </div>
@@ -1124,11 +1115,11 @@ export function App() {
 
                     <section className="settings-section">
                       <div className="settings-section-heading">
-                        <h3>{language === 'en' ? 'Inventory Categories' : '库存分类'}</h3>
+                        <h3>{language === 'en' ? 'Inventory Categories' : '\u5e93\u5b58\u5206\u7c7b'}</h3>
                       </div>
                       <div className="inline-form settings-inline-form">
-                        <input value={newCategoryZh} onChange={e => setNewCategoryZh(e.target.value)} placeholder={language === 'en' ? 'Chinese name' : '中文名称'} />
-                        <input value={newCategoryEn} onChange={e => setNewCategoryEn(e.target.value)} placeholder={language === 'en' ? 'English name' : '英文名称'} />
+                        <input value={newCategoryZh} onChange={e => setNewCategoryZh(e.target.value)} placeholder={language === 'en' ? 'Chinese name' : '\u4e2d\u6587\u540d\u79f0'} />
+                        <input value={newCategoryEn} onChange={e => setNewCategoryEn(e.target.value)} placeholder={language === 'en' ? 'English name' : '\u82f1\u6587\u540d\u79f0'} />
                         <button onClick={addInventoryCategory}>{t.add}</button>
                       </div>
                       <div className="settings-scroll-list">
@@ -1140,7 +1131,7 @@ export function App() {
                               disabled={category.name === 'uncategorized'}
                               onClick={() => removeInventoryCategory(category.name)}
                             >
-                              {language === 'en' ? 'Delete' : '删除'}
+                              {language === 'en' ? 'Delete' : '\u5220\u9664'}
                             </button>
                           </div>
                         ))}
@@ -1156,11 +1147,11 @@ export function App() {
 
                     <section className="settings-section">
                       <div className="settings-section-heading">
-                        <h3>{language === 'en' ? 'Daily generation limits' : '每日生成额度'}</h3>
+                        <h3>{language === 'en' ? 'Daily generation limits' : '\u6bcf\u65e5\u751f\u6210\u989d\u5ea6'}</h3>
                       </div>
                       <div className="settings-limit-grid">
                         <label>
-                          <span>{language === 'en' ? 'Whole site' : '全站'}</span>
+                          <span>{language === 'en' ? 'Whole site' : '\u5168\u7ad9'}</span>
                           <input
                             type="number"
                             min="0"
@@ -1169,7 +1160,7 @@ export function App() {
                           />
                         </label>
                         <label>
-                          <span>{language === 'en' ? 'Single user' : '单个用户'}</span>
+                          <span>{language === 'en' ? 'Single user' : '\u5355\u4e2a\u7528\u6237'}</span>
                           <input
                             type="number"
                             min="0"
@@ -1178,7 +1169,7 @@ export function App() {
                           />
                         </label>
                         <label>
-                          <span>{language === 'en' ? 'Guest IP/device' : '未登录 IP/设备'}</span>
+                          <span>{language === 'en' ? 'Guest IP/device' : '\u672a\u767b\u5f55 IP/\u8bbe\u5907'}</span>
                           <input
                             type="number"
                             min="0"
@@ -1187,7 +1178,7 @@ export function App() {
                           />
                         </label>
                         <label>
-                          <span>{language === 'en' ? 'Contact site' : '联系全站'}</span>
+                          <span>{language === 'en' ? 'Contact site' : '\u8054\u7cfb\u5168\u7ad9'}</span>
                           <input
                             type="number"
                             min="0"
@@ -1196,7 +1187,7 @@ export function App() {
                           />
                         </label>
                         <label>
-                          <span>{language === 'en' ? 'Contact user/IP' : '联系用户/IP'}</span>
+                          <span>{language === 'en' ? 'Contact user/IP' : '\u8054\u7cfb\u7528\u6237/IP'}</span>
                           <input
                             type="number"
                             min="0"
@@ -1205,17 +1196,17 @@ export function App() {
                           />
                         </label>
                       </div>
-                      <button onClick={saveGenerationLimits}>{language === 'en' ? 'Save limits' : '保存额度'}</button>
+                      <button onClick={saveGenerationLimits}>{language === 'en' ? 'Save limits' : '\u4fdd\u5b58\u989d\u5ea6'}</button>
                     </section>
 
                     <section className="settings-section settings-note-editor">
                       <h3>{uiLabels.introTextSettings}</h3>
                       <label>
-                        <span>{language === 'en' ? 'Chinese' : '中文'}</span>
+                        <span>{language === 'en' ? 'Chinese' : '\u4e2d\u6587'}</span>
                         <textarea value={introTextDrafts.zh} onChange={e => setIntroTextDrafts(prev => ({ ...prev, zh: e.target.value }))} />
                       </label>
                       <label>
-                        <span>{language === 'en' ? 'English' : '英文'}</span>
+                        <span>{language === 'en' ? 'English' : '\u82f1\u6587'}</span>
                         <textarea value={introTextDrafts.en} onChange={e => setIntroTextDrafts(prev => ({ ...prev, en: e.target.value }))} />
                       </label>
                       <div className="modal-actions">
@@ -1238,15 +1229,15 @@ export function App() {
                       </div>
                     </section>
                  </div>
-              ) : <p>{t.adminZone} ({t.loginTabAccount} {language === 'en' ? 'Required' : '必选'})</p>}
+               ) : <p>{t.adminZone} ({t.loginTabAccount} {language === 'en' ? 'Required' : '\u5fc5\u9700'})</p>}
               <section className="settings-section settings-note-editor">
                 <h3>{uiLabels.foodHintSettings}</h3>
                 <label>
-                  <span>{language === 'en' ? 'Chinese' : '中文'}</span>
+                  <span>{language === 'en' ? 'Chinese' : '\u4e2d\u6587'}</span>
                   <textarea value={foodHintDrafts.zh} onChange={e => setFoodHintDrafts(prev => ({ ...prev, zh: e.target.value }))} />
                 </label>
                 <label>
-                  <span>{language === 'en' ? 'English' : '英文'}</span>
+                  <span>{language === 'en' ? 'English' : '\u82f1\u6587'}</span>
                   <textarea value={foodHintDrafts.en} onChange={e => setFoodHintDrafts(prev => ({ ...prev, en: e.target.value }))} />
                 </label>
                 <div className="modal-actions">
@@ -1276,7 +1267,7 @@ export function App() {
       {editingItem && (
         <div className="modal-backdrop">
           <div className="modal">
-            <h2>{language === 'zh' ? '编辑库存' : 'Edit Item'}</h2>
+            <h2>{language === 'zh' ? '\u7f16\u8f91\u5e93\u5b58' : 'Edit Item'}</h2>
             <div className="form-grid">
                <label>{t.itemName} <input value={editName} onChange={e => setEditName(e.target.value)} /></label>
                <label>{t.volumePlaceholder} <input value={editAmount} onChange={e => setEditAmount(e.target.value)} /></label>
@@ -1284,7 +1275,7 @@ export function App() {
             <div className="modal-actions">
               <button onClick={() => setEditingItem(null)}>{t.cancel}</button>
               <button className="primary-action" style={{marginTop: 0, width: 'auto'}} onClick={saveEdit}>
-                {language === 'zh' ? '保存' : 'Save'}
+                {language === 'zh' ? '\u4fdd\u5b58' : 'Save'}
               </button>
             </div>
           </div>
@@ -1295,7 +1286,7 @@ export function App() {
         <section className="inventory-strip">
           <div className="section-heading">
             <div className="inventory-heading-main">
-              <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '（不设置库存也可以随机生成哦~）'}</small></h2>
+              <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '\uff08\u4e0d\u8bbe\u7f6e\u5e93\u5b58\u4e5f\u53ef\u4ee5\u968f\u673a\u751f\u6210\u54e6~\uff09'}</small></h2>
               <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
             <div className="inventory-heading-side">
@@ -1386,14 +1377,14 @@ export function App() {
               </div>
               <div className="compact-switch-row">
                  <input type="checkbox" id="ignoreInventory" checked={preferences.ignoreInventory} onChange={e => setPreferences({...preferences, ignoreInventory: e.target.checked})} />
-                 <label htmlFor="ignoreInventory">{language === 'en' ? uiLabels.ignoreInventory : '无视库存：不考虑库存情况随机生成'}</label>
+                 <label htmlFor="ignoreInventory">{language === 'en' ? uiLabels.ignoreInventory : '\u65e0\u89c6\u5e93\u5b58\uff1a\u4e0d\u8003\u8651\u5e93\u5b58\u60c5\u51b5\u968f\u673a\u751f\u6210'}</label>
               </div>
               {autoIgnoreInventory && <div className="compact-help-text">{uiLabels.ignoreInventoryAuto}</div>}
               <label className="compact-number-row">
-                <span>{language === 'en' ? 'Count' : '数量'}</span>
+                <span>{language === 'en' ? 'Count' : '鏁伴噺'}</span>
                 <input type="number" value={preferences.recommendationCount} onChange={e => setPreferences({...preferences, recommendationCount: Number(e.target.value)})} />
               </label>
-              <button className="primary-action compact-generate-button" onClick={generateRecommendations} disabled={loading}>{loading ? '正在生成...' : t.generate}</button>
+              <button className="primary-action compact-generate-button" onClick={generateRecommendations} disabled={loading}>{loading ? '\u6b63\u5728\u751f\u6210...' : t.generate}</button>
             </div>
             {generationStatus && <div className="generation-status" role="status" aria-live="polite">{generationStatus}</div>}
          </aside>
@@ -1407,7 +1398,7 @@ export function App() {
                    <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
                    <div className="recipe-number">{String(i + 1).padStart(2, '0')}</div>
                    <h3>{rec.name}</h3>
-                  <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} · {rec.calories} {uiLabels.kcal}</strong></div>
+                  <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} 路 {rec.calories} {uiLabels.kcal}</strong></div>
                    <div className="recipe-tags icon-tags">
                      {renderPreferenceTag(rec.temperature, uiLabels.temperature, language, t)}
                      {renderPreferenceTag(rec.caffeine, uiLabels.caffeine, language, t)}
@@ -1468,7 +1459,7 @@ export function App() {
                     <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
                     <div className="recipe-number">{String(i + 1).padStart(2, '0')}</div>
                     <h3>{rec.name}</h3>
-                    <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} · {rec.calories} {uiLabels.kcal}</strong></div>
+                    <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} 路 {rec.calories} {uiLabels.kcal}</strong></div>
                     <div className="recipe-tags icon-tags">
                       {renderPreferenceTag(rec.temperature, uiLabels.temperature, language, t)}
                       {renderPreferenceTag(rec.caffeine, uiLabels.caffeine, language, t)}
@@ -1550,7 +1541,7 @@ function formatCardOption(value: unknown, language: Language, t: typeof en) {
   const key = String(value ?? '');
   const label = (t.options as Record<string, string>)[key];
   if (label) return label;
-  if (language === 'zh' && key === 'room') return '常温';
+  if (language === 'zh' && key === 'room') return '\u5e38\u6e29';
   return key;
 }
 
@@ -1574,11 +1565,11 @@ function getScoreDimensions(score: any, language: Language) {
       frugality: 'Frugal'
     }
     : {
-      tasteBalance: '口味平衡',
-      inventoryFit: '库存匹配',
-      preferenceMatch: '偏好匹配',
-      simplicity: '制作简易',
-      frugality: '节俭利用'
+      tasteBalance: '\u53e3\u5473\u5e73\u8861',
+      inventoryFit: '\u5e93\u5b58\u5339\u914d',
+      preferenceMatch: '\u504f\u597d\u5339\u914d',
+      simplicity: '\u5236\u4f5c\u7b80\u6613',
+      frugality: '\u8282\u4fed\u5229\u7528'
     };
 
   return Object.entries(labels).map(([key, label]) => ({
@@ -1618,7 +1609,7 @@ function renderPreferenceTag(value: unknown, label: string, language: Language, 
 
 function parseRemainingIngredient(text: string, recIndex: number, index: number): InventoryItem {
   const trimmed = String(text ?? '').trim();
-  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%]+|ml|g|oz|杯|克|毫升|个|份)?\s*(.*)$/);
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(ml|g|oz|kg|l|杯|份|克|毫升|升)\s*(.*)$/i);
   return {
     id: `remaining-${recIndex}-${index}`,
     name: match?.[3]?.trim() || trimmed,
@@ -1627,7 +1618,6 @@ function parseRemainingIngredient(text: string, recIndex: number, index: number)
     category: 'uncategorized'
   };
 }
-
 function getApiHealthUrl() {
   const isLocalVite = ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port === '5173';
   return isLocalVite ? 'http://127.0.0.1:8787/api/health' : '/api/health';
@@ -1664,3 +1654,7 @@ function encodeBasicCredentials(credentials: AuthCredentials) {
   }
   return btoa(binary);
 }
+
+
+
+
