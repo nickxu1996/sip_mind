@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express from 'express';
+import nodemailer from 'nodemailer';
 import { applyRemainingIngredientRules, buildRecommendationPrompt, normalizeRecommendationOutputs, validateRecommendationRequest } from './recommendation.js';
 import type { createAiProvider } from './aiProvider.js';
 import type { createDatabase } from './storage.js';
@@ -8,6 +9,7 @@ type DatabaseApi = ReturnType<typeof createDatabase>;
 type AiProvider = ReturnType<typeof createAiProvider>;
 type CaptchaChallenge = { answer: string; expiresAt: number };
 type AuthenticatedRequest = express.Request & { user?: any; token?: string };
+type ContactRateRecord = { count: number; resetAt: number };
 
 export function parseBasicAuthHeader(header: string | undefined) {
   const match = header?.match(/^Basic\s+(.+)$/i);
@@ -29,6 +31,7 @@ export function parseBasicAuthHeader(header: string | undefined) {
 export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, string | undefined> = process.env) {
   const app = express();
   const captchaChallenges = new Map<string, CaptchaChallenge>();
+  const contactRateLimits = new Map<string, ContactRateRecord>();
 
   app.use(cors());
   app.use(express.json());
@@ -62,6 +65,58 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
 
   app.get('/api/captcha', (_request, response) => {
     response.json(createCaptchaChallenge());
+  });
+
+  app.post('/api/contact', async (request, response) => {
+    const ip = getIp(request);
+    const now = Date.now();
+    const rate = contactRateLimits.get(ip);
+    if (rate && rate.resetAt > now && rate.count >= 5) {
+      return response.status(429).json({ error: 'CONTACT_RATE_LIMITED' });
+    }
+    contactRateLimits.set(ip, rate && rate.resetAt > now
+      ? { count: rate.count + 1, resetAt: rate.resetAt }
+      : { count: 1, resetAt: now + 60 * 60 * 1000 });
+
+    const message = String(request.body?.message ?? '').trim();
+    const contactInfo = String(request.body?.contactInfo ?? '').trim();
+    const page = String(request.body?.page ?? '').slice(0, 300);
+    if (message.length < 3) return response.status(400).json({ error: 'MESSAGE_REQUIRED' });
+    if (message.length > 3000) return response.status(400).json({ error: 'MESSAGE_TOO_LONG' });
+    if (contactInfo.length > 300) return response.status(400).json({ error: 'CONTACT_TOO_LONG' });
+
+    const host = env.SMTP_HOST;
+    const user = env.SMTP_USER;
+    const pass = env.SMTP_PASS;
+    if (!host || !user || !pass) {
+      return response.status(503).json({ error: 'CONTACT_NOT_CONFIGURED' });
+    }
+
+    const port = Number(env.SMTP_PORT || 587);
+    const to = env.CONTACT_TO_EMAIL || 'nickxu1996@gmail.com';
+    const from = env.SMTP_FROM || user;
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass }
+    });
+
+    await transporter.sendMail({
+      from,
+      to,
+      subject: 'Sip Mind contact message',
+      text: [
+        'New Sip Mind contact message',
+        '',
+        `Contact info: ${contactInfo || 'Optional field left empty'}`,
+        `IP: ${ip}`,
+        `Page: ${page}`,
+        '',
+        message
+      ].join('\n')
+    });
+    response.json({ success: true });
   });
 
   const adminAuth: express.RequestHandler = (request, response, next) => {

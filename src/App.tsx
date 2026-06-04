@@ -284,6 +284,10 @@ export function App() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
+  const [showContact, setShowContact] = useState(false);
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
+  const [contactStatus, setContactStatus] = useState('');
 
   // Auth & UI States
   const [showLogin, setShowLogin] = useState(false);
@@ -398,6 +402,27 @@ export function App() {
     };
   const foodHintText = foodHintOverride?.text ?? defaultFoodHintTexts[language];
   const introText = introTexts[language] ?? defaultIntroTexts[language];
+  const contactLabels = language === 'en'
+    ? {
+      action: 'Contact us',
+      title: 'Contact us',
+      message: 'Message',
+      info: 'If you would like to receive our reply, please leave your contact information',
+      optional: 'Optional',
+      send: 'Send',
+      sent: 'Sent. Thank you.',
+      failed: 'Contact is not configured yet.'
+    }
+    : {
+      action: '联系我们',
+      title: '联系我们',
+      message: '留言',
+      info: '如果你希望收到我们的回复，请留下联系方式',
+      optional: '选填',
+      send: '发送',
+      sent: '已发送，谢谢。',
+      failed: '联系功能暂未配置。'
+    };
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -900,6 +925,28 @@ export function App() {
     }
   }
 
+  async function submitContact() {
+    if (!contactMessage.trim()) return;
+    setContactStatus(language === 'en' ? 'Sending...' : '正在发送...');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: contactMessage, contactInfo, page: window.location.href })
+      });
+      if (res.ok) {
+        setContactMessage('');
+        setContactInfo('');
+        setContactStatus(contactLabels.sent);
+      } else {
+        setContactStatus(contactLabels.failed);
+      }
+    } catch (error) {
+      console.error(error);
+      setContactStatus(contactLabels.failed);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="top-bar">
@@ -913,6 +960,17 @@ export function App() {
           </div>
         </div>
         <div className="settings-bar">
+          <button
+            type="button"
+            className="language-toggle"
+            aria-label={t.language}
+            onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
+          >
+            <span className={language === 'zh' ? 'active' : ''}>中</span>
+            <span className="language-divider">|</span>
+            <span className={language === 'en' ? 'active' : ''}>En</span>
+          </button>
+          <button onClick={() => setShowContact(true)}>{contactLabels.action}</button>
           <label>{t.language}
             <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
               <option value="en">English</option>
@@ -923,6 +981,30 @@ export function App() {
           <button onClick={() => setShowSettings(true)}>{t.settings}</button>
         </div>
       </header>
+
+      {showContact && (
+        <div className="modal-backdrop">
+          <div className="modal contact-modal">
+            <div className="modal-title-row">
+              <h2>{contactLabels.title}</h2>
+              <button className="modal-close" onClick={() => setShowContact(false)}>x</button>
+            </div>
+            <div className="form-grid">
+              <label>{contactLabels.message}
+                <textarea value={contactMessage} onChange={e => setContactMessage(e.target.value)} maxLength={3000} />
+              </label>
+              <label>{contactLabels.info}
+                <input value={contactInfo} onChange={e => setContactInfo(e.target.value)} placeholder={contactLabels.optional} maxLength={300} />
+              </label>
+            </div>
+            {contactStatus && <p className="contact-status">{contactStatus}</p>}
+            <div className="modal-actions">
+              <button onClick={() => setShowContact(false)}>{t.cancel}</button>
+              <button className="primary-action" style={{marginTop: 0, width: 'auto'}} onClick={submitContact}>{contactLabels.send}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogin && (
         <div className="modal-backdrop">
