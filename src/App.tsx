@@ -258,7 +258,7 @@ export function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [preferences, setPreferences] = useState({
     alcohol: 'any' as string, caffeine: 'any' as string, temperature: 'any' as string, calories: 'any' as string,
-    frugalMode: false, independentDrinks: false, recommendationCount: 2, requiredIngredientIds: [] as string[]
+    frugalMode: false, independentDrinks: false, ignoreInventory: false, recommendationCount: 2, requiredIngredientIds: [] as string[]
   });
   const [preferencesStorageReady, setPreferencesStorageReady] = useState(false);
   const [inventoryName, setInventoryName] = useState('');
@@ -290,6 +290,7 @@ export function App() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
+  const [flashingNoLeftoverId, setFlashingNoLeftoverId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const [contactMessage, setContactMessage] = useState('');
   const [contactInfo, setContactInfo] = useState('');
@@ -359,6 +360,8 @@ export function App() {
       shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
       guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
       independentDrinks: 'Independent drinks: ingredients are independent between options',
+      ignoreInventory: 'Ignore inventory: randomly generate drinks without considering inventory',
+      ignoreInventoryAuto: 'Automatically used when inventory has fewer than 3 items.',
       useRemaining: 'Use remaining ingredients',
       selected: 'Selected',
       selectLeftovers: 'Select leftovers',
@@ -390,6 +393,8 @@ export function App() {
       shareFoodLibraryHint: '。若不勾选，则只出现在个人食品库。',
       guestDailyLimit: (count: string) => `未登录用户每日可免费生成${count}次`,
       independentDrinks: '独立饮品：各选项之间食材独立',
+      ignoreInventory: '无视库存：将会随机生成饮品，不考虑库存情况',
+      ignoreInventoryAuto: '库存产品少于 3 个时会自动按此规则生成。',
       useRemaining: '利用剩余食材',
       selected: '已选择',
       selectLeftovers: '选择剩余',
@@ -408,6 +413,10 @@ export function App() {
     };
   const foodHintText = foodHintOverride?.text ?? defaultFoodHintTexts[language];
   const introText = introTexts[language] ?? defaultIntroTexts[language];
+  const hasMeasurableInventory = inventory.some(item => item.amount !== undefined);
+  const autoIgnoreInventory = inventory.length < 3;
+  const effectiveIgnoreInventory = preferences.ignoreInventory || autoIgnoreInventory;
+  const effectiveFrugalMode = preferences.frugalMode && !effectiveIgnoreInventory && hasMeasurableInventory;
   const contactLabels = language === 'en'
     ? {
       action: 'Contact us',
@@ -482,6 +491,13 @@ export function App() {
       loadGenerationLimits();
     }
   }, [showSettings, user?.role]);
+
+  useEffect(() => {
+    if (!flashingNoLeftoverId) return;
+    const clear = () => setFlashingNoLeftoverId(null);
+    window.addEventListener('click', clear);
+    return () => window.removeEventListener('click', clear);
+  }, [flashingNoLeftoverId]);
 
   useEffect(() => {
     setPreferencesStorageReady(false);
@@ -740,7 +756,12 @@ export function App() {
       const res = await fetch('/api/recommendations', {
         method: 'POST',
         headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ inventory, preferences, language, deviceId })
+        body: JSON.stringify({ inventory: effectiveIgnoreInventory ? [] : inventory, preferences: {
+          ...preferences,
+          ignoreInventory: effectiveIgnoreInventory,
+          frugalMode: effectiveFrugalMode,
+          requiredIngredientIds: effectiveIgnoreInventory ? [] : preferences.requiredIngredientIds
+        }, language, deviceId })
       });
       if (res.ok) {
         const data = await res.json();
@@ -899,6 +920,15 @@ export function App() {
 
   function toggleRecommendationSelection(id: string) {
     setSelectedRecommendationIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  }
+
+  function handleRecommendationSelection(id: string, rec: any) {
+    if ((rec.remainingIngredients ?? []).length === 0) {
+      setFlashingNoLeftoverId(id);
+      window.setTimeout(() => setFlashingNoLeftoverId(current => current === id ? null : current), 900);
+      return;
+    }
+    toggleRecommendationSelection(id);
   }
 
   async function generateFromRemainingIngredients() {
@@ -1265,7 +1295,7 @@ export function App() {
         <section className="inventory-strip">
           <div className="section-heading">
             <div className="inventory-heading-main">
-              <h2><span className="section-index">1.</span>{t.inventory}</h2>
+              <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '（不设置库存也可以随机生成哦~）'}</small></h2>
               <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
             <div className="inventory-heading-side">
@@ -1351,9 +1381,14 @@ export function App() {
                  <label htmlFor="independent">{uiLabels.independentDrinks}</label>
               </div>
               <div className="compact-switch-row">
-                 <input type="checkbox" id="frugal" disabled={preferences.independentDrinks} checked={!preferences.independentDrinks && preferences.frugalMode} onChange={e => setPreferences({...preferences, frugalMode: e.target.checked})} />
+                 <input type="checkbox" id="frugal" disabled={preferences.independentDrinks || effectiveIgnoreInventory || !hasMeasurableInventory} checked={!preferences.independentDrinks && effectiveFrugalMode} onChange={e => setPreferences({...preferences, frugalMode: e.target.checked})} />
                  <label htmlFor="frugal">{t.frugalMode}</label>
               </div>
+              <div className="compact-switch-row">
+                 <input type="checkbox" id="ignoreInventory" checked={preferences.ignoreInventory} onChange={e => setPreferences({...preferences, ignoreInventory: e.target.checked})} />
+                 <label htmlFor="ignoreInventory">{uiLabels.ignoreInventory}</label>
+              </div>
+              {autoIgnoreInventory && <div className="compact-help-text">{uiLabels.ignoreInventoryAuto}</div>}
               <label className="compact-number-row">
                 <span>{language === 'en' ? 'Count' : '数量'}</span>
                 <input type="number" value={preferences.recommendationCount} onChange={e => setPreferences({...preferences, recommendationCount: Number(e.target.value)})} />
@@ -1412,11 +1447,11 @@ export function App() {
                      <h4>{uiLabels.remaining}</h4>
                      {(rec.remainingIngredients ?? []).length > 0
                        ? <ul>{rec.remainingIngredients.map((ingredient: string, index: number) => <li key={index}>{ingredient}</li>)}</ul>
-                       : <p>{uiLabels.noMeasurableLeftovers}</p>}
+                       : <p className={`no-leftovers-text ${flashingNoLeftoverId === getRecommendationId('main', rec, i) ? 'flash' : ''}`}>{uiLabels.noMeasurableLeftovers}</p>}
                    </section>
                    <button
-                     className={`select-recipe ${selectedRecommendationIds.includes(getRecommendationId('main', rec, i)) ? 'selected' : ''}`}
-                     onClick={() => toggleRecommendationSelection(getRecommendationId('main', rec, i))}
+                     className={`select-recipe ${(rec.remainingIngredients ?? []).length === 0 ? 'no-leftovers' : ''} ${selectedRecommendationIds.includes(getRecommendationId('main', rec, i)) ? 'selected' : ''}`}
+                     onClick={() => handleRecommendationSelection(getRecommendationId('main', rec, i), rec)}
                    >
                      {selectedRecommendationIds.includes(getRecommendationId('main', rec, i)) ? uiLabels.selected : uiLabels.selectLeftovers}
                    </button>

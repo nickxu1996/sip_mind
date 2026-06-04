@@ -17,18 +17,21 @@ export const preferenceSchema = z.object({
   calories: z.enum(['any', 'high', 'medium', 'low', 'very-low']),
   frugalMode: z.boolean(),
   independentDrinks: z.boolean().default(false),
+  ignoreInventory: z.boolean().optional(),
   requiredIngredientIds: z.array(z.string()),
   recommendationCount: z.coerce.number().int().min(1).max(10)
 });
 
 export const recommendationRequestSchema = z
   .object({
-    inventory: z.array(inventoryItemSchema).min(1),
+    inventory: z.array(inventoryItemSchema).default([]),
     preferences: preferenceSchema,
     language: z.enum(['en', 'zh']).default('en')
   })
   .superRefine((request, context) => {
-    if (request.preferences.frugalMode && !request.preferences.independentDrinks && request.preferences.recommendationCount < 2) {
+    const measurableItems = request.inventory.filter(item => item.amount !== undefined);
+    const effectiveFrugalMode = request.preferences.frugalMode && !Boolean(request.preferences.ignoreInventory) && measurableItems.length > 0;
+    if (effectiveFrugalMode && !request.preferences.independentDrinks && request.preferences.recommendationCount < 2) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['preferences', 'recommendationCount'],
@@ -37,7 +40,7 @@ export const recommendationRequestSchema = z
     }
 
     const inventoryIds = new Set(request.inventory.map((item) => item.id));
-    const missingRequiredIds = request.preferences.requiredIngredientIds.filter((id) => !inventoryIds.has(id));
+    const missingRequiredIds = request.preferences.ignoreInventory ? [] : request.preferences.requiredIngredientIds.filter((id) => !inventoryIds.has(id));
     if (missingRequiredIds.length > 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -99,6 +102,9 @@ export function normalizeRecommendationOutput(input: unknown, fallbackOrder = 1)
 }
 
 export function applyRemainingIngredientRules(recommendations: RecommendationOutput[], request: RecommendationRequest): RecommendationOutput[] {
+  if (Boolean(request.preferences.ignoreInventory)) {
+    return recommendations.map((recommendation) => ({ ...recommendation, remainingIngredients: [] }));
+  }
   return recommendations.map((recommendation) => ({
     ...recommendation,
     remainingIngredients: calculateRemainingIngredients(recommendation, request)
@@ -258,23 +264,31 @@ export function normalizeRecommendationOutputs(input: unknown): RecommendationOu
 }
 
 export function buildRecommendationPrompt(request: RecommendationRequest): string {
-  const requiredNames = request.preferences.requiredIngredientIds
+  const measurableItems = request.inventory.filter(item => item.amount !== undefined);
+  const ignoreInventory = Boolean(request.preferences.ignoreInventory);
+  const effectiveFrugalMode = request.preferences.frugalMode && !ignoreInventory && measurableItems.length > 0;
+  const requiredNames = ignoreInventory ? [] : request.preferences.requiredIngredientIds
     .map((id) => request.inventory.find((item) => item.id === id)?.name)
     .filter((name): name is string => Boolean(name));
 
-  const inventoryText = request.inventory
+  const inventoryText = ignoreInventory || request.inventory.length === 0
+    ? '- No usable inventory constraint. Generate broadly appealing drinks from common ingredients.'
+    : request.inventory
     .map((item) => {
       const amountText = item.amount === undefined ? 'amount unspecified' : `${item.amount} ${item.unit}`;
       return `- ${item.name}: ${amountText}; category ${item.category}; id ${item.id}`;
     })
     .join('\n');
 
-  const frugalText = request.preferences.frugalMode
+  const frugalText = effectiveFrugalMode
     ? 'Frugal mode is on: try to reduce measurable leftovers across the recommended set, but never sacrifice taste, balance, or golden-ratio drink proportions. Good taste is the first priority. Leaving unused ingredients is acceptable when it improves the drink.'
-    : 'Frugal mode is off: prioritize good taste, balance, and golden-ratio drink proportions.';
+    : 'Frugal mode is off or not applicable: prioritize good taste, balance, and golden-ratio drink proportions. Items without numeric amounts must not be optimized for frugal exhaustion.';
   const sharingText = request.preferences.independentDrinks
     ? 'Independent drinks is on: each recommendation is a separate option and does not need to share inventory with the other options. Treat the available inventory as available for each option independently.'
     : 'Independent drinks is off: recommendations are a set of options that may share the same inventory pool. If frugal mode is on, consider the combined use across the set, but do not force bad-tasting drinks.';
+  const inventoryModeText = ignoreInventory
+    ? 'Ignore inventory is on: randomly generate drink recommendations without requiring, matching, or conserving the listed inventory. Inventory fit should not affect the score.'
+    : 'Ignore inventory is off: use inventory as useful context, and honor required ingredients when present.';
   const coffeeDimensions = request.language === 'zh'
     ? ['甜度平衡', '苦味顺滑度', '香气/风味感', '口感厚度/滑顺度', '整体协调度']
     : ['Sweetness balance', 'Bitterness smoothness', 'Aroma/flavor presence', 'Body/smoothness', 'Overall harmony'];
@@ -303,6 +317,7 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
     'Use numeric estimated total drink volume in milliliters as volumeMl.',
     'Every recommendation must include remainingIngredients. For each drink, list only ingredients that are actually used in that drink and have a numeric inventory amount. Calculate each item as inventory amount for that item minus the amount used by this drink. Do not list unused inventory. If a used ingredient has no numeric inventory amount, do not include it in remainingIngredients. If nothing qualifies, return an empty array.',
     'Ingredients with unspecified amount should not be considered for frugal exhaustion or remainingIngredients, but they may still be used for taste.',
+    'If ignore inventory is on, return an empty remainingIngredients array for every recommendation.',
     'Score total from 0 to 100. Score each dimension value from 0 to 10.',
     `For non-alcohol coffee/caffeine drinks, use these five dimension labels exactly: ${localizedCoffeeDimensions.join(', ')}.`,
     `For alcoholic drinks, use these five dimension labels exactly: ${localizedAlcoholDimensions.join(', ')}.`,
@@ -318,8 +333,11 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
     `- Temperature: ${request.preferences.temperature}`,
     `- Calories: ${request.preferences.calories}`,
     `- Required ingredients: ${requiredNames.length > 0 ? requiredNames.join(', ') : 'none'}`,
-    `- Frugal mode: ${request.preferences.frugalMode ? 'on' : 'off'}`,
+    `- Frugal mode: ${effectiveFrugalMode ? 'on' : 'off/not applicable'}`,
     `- Independent drinks: ${request.preferences.independentDrinks ? 'on' : 'off'}`,
+    `- Ignore inventory: ${ignoreInventory ? 'on' : 'off'}`,
+    '',
+    inventoryModeText,
     '',
     sharingText,
     '',
