@@ -105,16 +105,30 @@ function upsertFoodLibraryByName(db: Database.Database, userId: number, name: st
   `).all(userId, normalized) as { id: number; category: string }[];
   const fallback = existing.find(row => row.category && row.category !== UNCATEGORIZED_CATEGORY);
   const chosenCategory = nextCategory !== UNCATEGORIZED_CATEGORY ? nextCategory : (fallback?.category ?? UNCATEGORIZED_CATEGORY);
-  const result = db.prepare(`
-    INSERT INTO food_library (user_id, name, normalized_name, category)
-    VALUES (?, ?, ?, ?)
-  `).run(userId, trimmed, normalized, chosenCategory);
-  const newId = Number(result.lastInsertRowid);
+  const matching = existing.find(row => row.category === chosenCategory);
+  let newId: number;
+  let changes = 1;
+  if (matching) {
+    const result = db.prepare(`
+      UPDATE food_library
+      SET name = ?, category = ?, created_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(trimmed, chosenCategory, matching.id);
+    newId = matching.id;
+    changes = result.changes;
+  } else {
+    const result = db.prepare(`
+      INSERT INTO food_library (user_id, name, normalized_name, category)
+      VALUES (?, ?, ?, ?)
+    `).run(userId, trimmed, normalized, chosenCategory);
+    newId = Number(result.lastInsertRowid);
+    changes = result.changes;
+  }
   db.prepare(`
     DELETE FROM food_library
     WHERE user_id = ? AND normalized_name = ? AND id <> ?
   `).run(userId, normalized, newId);
-  return result.changes;
+  return changes;
 }
 
 export function orderInventoryCategories(categories: string[]) {

@@ -146,11 +146,13 @@ button { cursor: pointer; }
 }
 
 .inventory-strip .section-heading {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  min-height: 32px;
 }
 
 .inventory-heading-main {
@@ -161,11 +163,23 @@ button { cursor: pointer; }
 }
 
 .inventory-heading-side {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
-  height: 100%;
+  height: 28px;
+}
+
+.inventory-heading-side .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  line-height: 1;
 }
 
 .inventory-strip h2 {
@@ -1103,7 +1117,7 @@ button { cursor: pointer; }
 @media (max-width: 700px) {
   .content-grid { grid-template-columns: 1fr; }
   .inventory-strip .section-heading { grid-template-columns: 1fr; gap: 6px; }
-  .inventory-heading-side { justify-content: flex-start; }
+  .inventory-heading-side { right: 0; justify-content: flex-end; }
   .guest-limit-note { position: static; transform: none; margin-left: 10px; }
   .inventory-library-layout { grid-template-columns: 1fr; }
   .history-panel { grid-column: span 1; }
