@@ -986,14 +986,12 @@ export function App() {
     <main className="app-shell">
       <header className="top-bar">
         <div className="top-bar-branding">
-          <div className="brand-title-line">
-            <div className="brand-name-stack">
-              <h1>Sip Mind</h1>
-              <strong>{'\u676f\u4e2d\u7075\u611f'}</strong>
-            </div>
-            <p>{introText}</p>
+          <div className="brand-name-stack">
+            <h1>Sip Mind</h1>
+            <strong>{'\u676f\u4e2d\u7075\u611f'}</strong>
           </div>
         </div>
+        <p className="top-bar-intro">{introText}</p>
         <div className="settings-bar">
           <button
             type="button"
@@ -1381,7 +1379,7 @@ export function App() {
               </div>
               {autoIgnoreInventory && <div className="compact-help-text">{uiLabels.ignoreInventoryAuto}</div>}
               <label className="compact-number-row">
-                <span>{language === 'en' ? 'Count' : '鏁伴噺'}</span>
+                <span>{language === 'en' ? 'Count' : '\u6570\u91cf'}</span>
                 <input type="number" value={preferences.recommendationCount} onChange={e => setPreferences({...preferences, recommendationCount: Number(e.target.value)})} />
               </label>
               <button className="primary-action compact-generate-button" onClick={generateRecommendations} disabled={loading}>{loading ? '\u6b63\u5728\u751f\u6210...' : t.generate}</button>
@@ -1398,7 +1396,7 @@ export function App() {
                    <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
                    <div className="recipe-number">{String(i + 1).padStart(2, '0')}</div>
                    <h3>{rec.name}</h3>
-                  <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} 路 {rec.calories} {uiLabels.kcal}</strong></div>
+                  <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} · {rec.calories} {uiLabels.kcal}</strong></div>
                    <div className="recipe-tags icon-tags">
                      {renderPreferenceTag(rec.temperature, uiLabels.temperature, language, t)}
                      {renderPreferenceTag(rec.caffeine, uiLabels.caffeine, language, t)}
@@ -1459,7 +1457,7 @@ export function App() {
                     <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
                     <div className="recipe-number">{String(i + 1).padStart(2, '0')}</div>
                     <h3>{rec.name}</h3>
-                    <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} 路 {rec.calories} {uiLabels.kcal}</strong></div>
+                    <div className="calorie-row"><strong>{formatRecipeVolume(rec.volumeMl)} · {rec.calories} {uiLabels.kcal}</strong></div>
                     <div className="recipe-tags icon-tags">
                       {renderPreferenceTag(rec.temperature, uiLabels.temperature, language, t)}
                       {renderPreferenceTag(rec.caffeine, uiLabels.caffeine, language, t)}
