@@ -2541,31 +2541,71 @@ body {
 
 /* Result readability pass: tighter result frame, larger text, single-line score rows. */
 .main-panel {
-  padding: 12px;
+  padding: 6px;
 }
 
 .results-area {
-  gap: 7px 6px;
+  gap: 4px;
+  padding: 4px;
 }
 
 .results-area.result-count-2 {
   justify-content: center;
-  column-gap: clamp(20px, 7vw, 96px);
+  column-gap: 4px;
 }
 
 .results-area.result-count-3 {
   justify-content: center;
-  column-gap: clamp(10px, 2.8vw, 36px);
+  column-gap: 4px;
 }
 
 .recommendation-card {
-  padding: 26px 8px 10px;
-  gap: 7px;
+  padding: 25px 6px 9px;
+  gap: 6px;
+}
+
+.recommendation-card h3 {
+  font-size: 1.22rem;
+}
+
+.calorie-row {
+  font-size: 0.94rem;
+}
+
+.recipe-tags {
+  flex-wrap: nowrap;
+  gap: 3px;
+}
+
+.recipe-tags span,
+.text-tag {
+  max-width: 33%;
+  padding: 3px 5px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dimension-scores span,
+.dimension-scores strong {
+  font-size: 0.76rem;
 }
 
 .dimension-scores {
   grid-template-columns: minmax(0, 1fr);
   gap: 3px;
+}
+
+.recipe-section h4 {
+  font-size: 0.94rem;
+}
+
+.recipe-section p,
+.recipe-section ul,
+.recipe-section ol {
+  font-size: 0.96rem;
+  line-height: 1.46;
 }
 
 .dimension-scores span:nth-child(5):last-child {
@@ -2574,10 +2614,26 @@ body {
 
 @media (max-width: 700px) {
   .main-panel {
-    padding: 10px;
+    padding: 5px;
   }
 
   .recommendation-card {
-    padding: 24px 7px 10px;
+    padding: 24px 5px 9px;
+  }
+
+  .recommendation-card h3 {
+    font-size: 1rem;
+  }
+
+  .recipe-tags span,
+  .text-tag {
+    font-size: 0.68rem;
+    padding: 2px 4px;
+  }
+
+  .recipe-section p,
+  .recipe-section ul,
+  .recipe-section ol {
+    font-size: 0.78rem;
   }
 }
