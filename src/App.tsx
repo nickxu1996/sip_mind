@@ -1334,7 +1334,7 @@ export function App() {
               <div className="food-library-head">
                 <button className="food-library-toggle" onClick={() => setFoodLibraryOpen(prev => !prev)}>
                   <span>{foodLibraryOpen ? 'v' : '>'}</span>
-                  <strong><span className="section-index">2.</span>{uiLabels.foodLibrary}</strong>
+                  <strong>{uiLabels.foodLibrary}</strong>
                 </button>
                 <label className="food-library-search">
                   <input
@@ -1386,7 +1386,7 @@ export function App() {
       <div className="content-grid">
          <aside className="panel settings-panel">
             <div className="section-heading">
-              <h2><span className="section-index">3.</span>{t.preferences}</h2>
+              <h2><span className="section-index">2.</span>{t.preferences}</h2>
               <button type="button" className="text-button" onClick={randomize}>{t.randomize}</button>
             </div>
             <div className="form-grid">
@@ -1420,8 +1420,8 @@ export function App() {
          </aside>
 
          <section className="panel main-panel">
-            <h2><span className="section-index">4.</span>{t.generate}</h2>
-            <div className={`results-area result-count-${Math.min(Math.max(recommendations.length, 1), 4)}`}>
+            <h2><span className="section-index">3.</span>{t.generate}</h2>
+            <div className={`results-area result-count-${Math.min(Math.max(recommendations.length, 1), 3)}`}>
                {recommendations.length === 0 && <p className="placeholder-text">{t.recommendationPlaceholder}</p>}
                {recommendations.map((rec, i) => (
                  <article key={getRecommendationId('main', rec, i)} className="recommendation-card">
@@ -1483,7 +1483,7 @@ export function App() {
               {uiLabels.useRemaining}
             </button>
             {leftoverRecommendations.length > 0 && (
-              <div className={`results-area leftover-results result-count-${Math.min(Math.max(leftoverRecommendations.length, 1), 4)}`}>
+              <div className={`results-area leftover-results result-count-${Math.min(Math.max(leftoverRecommendations.length, 1), 3)}`}>
                 {leftoverRecommendations.map((rec, i) => (
                   <article key={getRecommendationId('leftover', rec, i)} className="recommendation-card">
                     <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
@@ -1519,7 +1519,7 @@ export function App() {
          </section>
 
          <aside className="panel history-panel">
-            <h2><span className="section-index">5.</span>{t.favorites}</h2>
+            <h2><span className="section-index">4.</span>{t.favorites}</h2>
             <div className="history-list">
                {favorites.map(f => (
                   <div key={f.id} className="history-item">

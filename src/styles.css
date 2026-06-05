@@ -2375,3 +2375,125 @@ body {
     height: 42px;
   }
 }
+
+/* Final approved layout pass: frameless header, inventory-owned library, max 3 result cards. */
+:root {
+  --result-card-width: 232px;
+}
+
+.top-bar {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 10px 14px;
+}
+
+.top-bar,
+.top-bar:hover {
+  border-color: transparent;
+}
+
+.food-library-toggle strong .section-index {
+  display: none;
+}
+
+.results-area {
+  grid-template-columns: repeat(auto-fit, var(--result-card-width));
+  justify-content: space-between;
+  gap: 16px 12px;
+}
+
+.results-area.result-count-1 {
+  grid-template-columns: var(--result-card-width);
+  justify-content: center;
+}
+
+.results-area.result-count-2 {
+  grid-template-columns: repeat(2, var(--result-card-width));
+  justify-content: space-evenly;
+}
+
+.results-area.result-count-3 {
+  grid-template-columns: repeat(3, var(--result-card-width));
+  justify-content: space-between;
+}
+
+.recommendation-card {
+  width: var(--result-card-width);
+  padding: 30px 16px 14px;
+  gap: 8px;
+}
+
+.favorite-action::before {
+  content: '\2661';
+  font-size: 1.25rem;
+}
+
+.recommendation-card h3 {
+  font-size: 1rem;
+}
+
+.calorie-row {
+  font-size: 0.76rem;
+}
+
+.dimension-scores span {
+  font-size: 0.58rem;
+}
+
+.recipe-section h4 {
+  font-size: 0.75rem;
+}
+
+.recipe-section p,
+.recipe-section ul,
+.recipe-section ol {
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1200px) {
+  :root {
+    --result-card-width: 224px;
+  }
+
+  .results-area,
+  .results-area.result-count-1,
+  .results-area.result-count-2,
+  .results-area.result-count-3 {
+    justify-content: space-evenly;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --result-card-width: 168px;
+  }
+
+  .top-bar {
+    padding: 8px 6px 12px;
+  }
+
+  .results-area,
+  .results-area.result-count-1,
+  .results-area.result-count-2,
+  .results-area.result-count-3 {
+    grid-template-columns: repeat(2, var(--result-card-width));
+    justify-content: space-between;
+  }
+
+  .recommendation-card {
+    width: var(--result-card-width);
+    padding: 26px 9px 10px;
+  }
+
+  .recommendation-card h3 {
+    font-size: 0.82rem;
+  }
+
+  .recipe-section p,
+  .recipe-section ul,
+  .recipe-section ol {
+    font-size: 0.62rem;
+  }
+}
