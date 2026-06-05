@@ -1443,7 +1443,10 @@ export function App() {
                        </div>
                        <div className="dimension-scores">
                          {getScoreDimensions(rec.score, language).map((dimension: { label: string; value: number }, index: number) => (
-                           <span key={`${dimension.label}-${index}`}>{dimension.label} {dimension.value}/10</span>
+                           <span key={`${dimension.label}-${index}`}>
+                             <span className="dimension-label">{dimension.label}</span>
+                             <strong>{dimension.value}/10</strong>
+                           </span>
                          ))}
                        </div>
                      </div>
@@ -1500,7 +1503,10 @@ export function App() {
                         <div className="total-score"><span>{uiLabels.score}</span><strong>{rec.score.total}</strong><small>/100</small></div>
                         <div className="dimension-scores">
                           {getScoreDimensions(rec.score, language).map((dimension: { label: string; value: number }, index: number) => (
-                            <span key={`${dimension.label}-${index}`}>{dimension.label} {dimension.value}/10</span>
+                            <span key={`${dimension.label}-${index}`}>
+                              <span className="dimension-label">{dimension.label}</span>
+                              <strong>{dimension.value}/10</strong>
+                            </span>
                           ))}
                         </div>
                       </div>

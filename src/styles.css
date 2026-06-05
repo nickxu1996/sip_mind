@@ -2118,12 +2118,13 @@ body {
 
 .main-panel {
   min-width: 0;
+  padding: 12px;
 }
 
 .results-area {
   grid-template-columns: repeat(auto-fit, var(--result-card-width));
   justify-content: space-between;
-  gap: 14px 10px;
+  gap: 7px 5px;
   align-items: stretch;
 }
 
@@ -2145,8 +2146,8 @@ body {
   border-color: var(--sip-border);
   border-radius: 8px;
   background: #fff;
-  padding: 28px 10px 12px;
-  gap: 6px;
+  padding: 26px 8px 10px;
+  gap: 7px;
   box-shadow: none;
 }
 
@@ -2432,25 +2433,58 @@ body {
 }
 
 .recommendation-card h3 {
-  font-size: 1.08rem;
+  font-size: 1.16rem;
 }
 
 .calorie-row {
-  font-size: 0.84rem;
+  font-size: 0.9rem;
+}
+
+.score-block {
+  padding: 6px 6px;
+}
+
+.total-score strong {
+  font-size: 1.82rem;
 }
 
 .dimension-scores span {
-  font-size: 0.66rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.dimension-scores .dimension-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dimension-scores strong {
+  flex: 0 0 auto;
+  color: #7c2d12;
+  font-size: 0.72rem;
+}
+
+.recipe-tags span,
+.text-tag {
+  font-size: 0.78rem;
 }
 
 .recipe-section h4 {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
 }
 
 .recipe-section p,
 .recipe-section ul,
 .recipe-section ol {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   line-height: 1.42;
 }
 
@@ -2486,16 +2520,64 @@ body {
 
   .recommendation-card {
     width: var(--result-card-width);
-    padding: 26px 9px 10px;
+    padding: 24px 7px 10px;
   }
 
   .recommendation-card h3 {
-    font-size: 0.9rem;
+    font-size: 0.96rem;
+  }
+
+  .dimension-scores span,
+  .dimension-scores strong {
+    font-size: 0.68rem;
   }
 
   .recipe-section p,
   .recipe-section ul,
   .recipe-section ol {
-    font-size: 0.68rem;
+    font-size: 0.74rem;
+  }
+}
+
+/* Result readability pass: tighter result frame, larger text, single-line score rows. */
+.main-panel {
+  padding: 12px;
+}
+
+.results-area {
+  gap: 7px 6px;
+}
+
+.results-area.result-count-2 {
+  justify-content: center;
+  column-gap: clamp(20px, 7vw, 96px);
+}
+
+.results-area.result-count-3 {
+  justify-content: center;
+  column-gap: clamp(10px, 2.8vw, 36px);
+}
+
+.recommendation-card {
+  padding: 26px 8px 10px;
+  gap: 7px;
+}
+
+.dimension-scores {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+.dimension-scores span:nth-child(5):last-child {
+  grid-column: auto;
+}
+
+@media (max-width: 700px) {
+  .main-panel {
+    padding: 10px;
+  }
+
+  .recommendation-card {
+    padding: 24px 7px 10px;
   }
 }
