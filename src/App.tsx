@@ -1312,7 +1312,7 @@ export function App() {
             <div className="food-library" style={foodLibraryOpen && inventoryLanesHeight > 0 ? { height: inventoryLanesHeight } : undefined}>
               <button className="food-library-toggle" onClick={() => setFoodLibraryOpen(prev => !prev)}>
                 <span>{foodLibraryOpen ? 'v' : '>'}</span>
-                {uiLabels.foodLibrary}
+                <strong><span className="section-index">2.</span>{uiLabels.foodLibrary}</strong>
               </button>
               {foodLibraryOpen && (
                 <div className="food-library-body">
@@ -1354,7 +1354,7 @@ export function App() {
       <div className="content-grid">
          <aside className="panel settings-panel">
             <div className="section-heading">
-              <h2><span className="section-index">2.</span>{t.preferences}</h2>
+              <h2><span className="section-index">3.</span>{t.preferences}</h2>
               <button type="button" className="text-button" onClick={randomize}>{t.randomize}</button>
             </div>
             <div className="form-grid">
@@ -1388,7 +1388,7 @@ export function App() {
          </aside>
 
          <section className="panel main-panel">
-            <h2><span className="section-index">3.</span>{t.generate}</h2>
+            <h2><span className="section-index">4.</span>{t.generate}</h2>
             <div className="results-area">
                {recommendations.length === 0 && <p className="placeholder-text">{t.recommendationPlaceholder}</p>}
                {recommendations.map((rec, i) => (
@@ -1487,7 +1487,7 @@ export function App() {
          </section>
 
          <aside className="panel history-panel">
-            <h2><span className="section-index">4.</span>{t.favorites}</h2>
+            <h2><span className="section-index">5.</span>{t.favorites}</h2>
             <div className="history-list">
                {favorites.map(f => (
                   <div key={f.id} className="history-item">
