@@ -42,6 +42,22 @@ let apiReadyPromise: Promise<void> | null = null;
 
 const laneId = (category: string) => `category-lane:${category}`;
 
+const categoryIcons: Record<string, string> = {
+  coffee: '☕',
+  alcohol: '⚗',
+  soft: '▣',
+  milk: '▤',
+  powder: '◫',
+  fruit: '◎',
+  tea: '♧',
+  solid: '▥',
+  uncategorized: '◇'
+};
+
+function getCategoryIcon(category: string) {
+  return categoryIcons[category] ?? '○';
+}
+
 function normalizeCategory(category: string | Partial<InventoryCategory>): InventoryCategory {
   if (typeof category === 'string') {
     const fallback = defaultCategories.find(item => item.name === category);
@@ -236,7 +252,11 @@ function CategoryLane({ id, title, items, requiredIds, onToggle, onDelete, onEdi
   
   return (
     <div className="category-row">
-      <h3>{title}</h3>
+      <h3>
+        <span className="category-icon" aria-hidden="true">{getCategoryIcon(id)}</span>
+        <span className="category-title">{title}</span>
+        <span className="category-count">{items.length}</span>
+      </h3>
       <div ref={setNodeRef} className={`category-drop-zone ${isOver ? 'over' : ''}`}>
         {items.map(item => (
           <DraggableChip 
@@ -272,6 +292,7 @@ export function App() {
   const [selectedRecommendationIds, setSelectedRecommendationIds] = useState<string[]>([]);
   const [foodLibrary, setFoodLibrary] = useState<FoodLibraryItem[]>([]);
   const [foodLibraryOpen, setFoodLibraryOpen] = useState(true);
+  const [foodLibrarySearch, setFoodLibrarySearch] = useState('');
   const [foodHintOverride, setFoodHintOverride] = useState<{ text: string } | null>(null);
   const [foodHintDrafts, setFoodHintDrafts] = useState<Record<Language, string>>({ zh: '', en: '' });
   const [introTexts, setIntroTexts] = useState<Record<Language, string>>(() => readStoredTextDrafts(readStoredIntroText));
@@ -788,7 +809,7 @@ export function App() {
   async function saveAsFavorite(rec: any) {
     if (!user) return;
     try {
-      const fav = { name: rec.name, rating: 5, ingredients: rec.ingredients, steps: rec.steps, metadata: {alcohol: rec.alcohol, caffeine: rec.caffeine, calories: rec.calories, score: rec.score} };
+      const fav = { name: rec.name, rating: 5, ingredients: rec.ingredients, steps: rec.steps, metadata: {alcohol: rec.alcohol, caffeine: rec.caffeine, temperature: rec.temperature, calories: rec.calories, volumeMl: rec.volumeMl, score: rec.score} };
       await fetch('/api/user/favorites', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ favorite: fav })});
       fetchUserData();
     } catch (e) { console.error(e); }
@@ -1310,14 +1331,25 @@ export function App() {
               ))}
             </div>
             <div className="food-library" style={foodLibraryOpen && inventoryLanesHeight > 0 ? { height: inventoryLanesHeight } : undefined}>
-              <button className="food-library-toggle" onClick={() => setFoodLibraryOpen(prev => !prev)}>
-                <span>{foodLibraryOpen ? 'v' : '>'}</span>
-                <strong><span className="section-index">2.</span>{uiLabels.foodLibrary}</strong>
-              </button>
+              <div className="food-library-head">
+                <button className="food-library-toggle" onClick={() => setFoodLibraryOpen(prev => !prev)}>
+                  <span>{foodLibraryOpen ? 'v' : '>'}</span>
+                  <strong><span className="section-index">2.</span>{uiLabels.foodLibrary}</strong>
+                </button>
+                <label className="food-library-search">
+                  <input
+                    value={foodLibrarySearch}
+                    onChange={e => setFoodLibrarySearch(e.target.value)}
+                    placeholder={language === 'en' ? 'Search foods...' : '\u641c\u7d22\u98df\u7269\u540d\u79f0...'}
+                  />
+                  <span aria-hidden="true">⌕</span>
+                </label>
+              </div>
               {foodLibraryOpen && (
                 <div className="food-library-body">
                   {categories.map(category => {
-                    const items = foodLibrary.filter(item => item.category === category.name);
+                    const keyword = foodLibrarySearch.trim().toLocaleLowerCase();
+                    const items = foodLibrary.filter(item => item.category === category.name && (!keyword || item.name.toLocaleLowerCase().includes(keyword)));
                     if (items.length === 0) return null;
                     return (
                       <div key={category.name} className="food-library-group">
@@ -1389,7 +1421,7 @@ export function App() {
 
          <section className="panel main-panel">
             <h2><span className="section-index">4.</span>{t.generate}</h2>
-            <div className="results-area">
+            <div className={`results-area result-count-${Math.min(Math.max(recommendations.length, 1), 4)}`}>
                {recommendations.length === 0 && <p className="placeholder-text">{t.recommendationPlaceholder}</p>}
                {recommendations.map((rec, i) => (
                  <article key={getRecommendationId('main', rec, i)} className="recommendation-card">
@@ -1451,7 +1483,7 @@ export function App() {
               {uiLabels.useRemaining}
             </button>
             {leftoverRecommendations.length > 0 && (
-              <div className="results-area leftover-results">
+              <div className={`results-area leftover-results result-count-${Math.min(Math.max(leftoverRecommendations.length, 1), 4)}`}>
                 {leftoverRecommendations.map((rec, i) => (
                   <article key={getRecommendationId('leftover', rec, i)} className="recommendation-card">
                     <button className="favorite-action corner-favorite" onClick={() => saveAsFavorite(rec)}>{uiLabels.save}</button>
@@ -1491,8 +1523,15 @@ export function App() {
             <div className="history-list">
                {favorites.map(f => (
                   <div key={f.id} className="history-item">
-                     <span className="history-recipe">{f.name}</span>
-                     <div style={{fontSize: '0.75rem', color: '#999'}}>{'★'.repeat(f.rating)}</div>
+                     <div className="history-thumb">{String(f.name ?? '?').slice(0, 1)}</div>
+                     <div className="history-main">
+                       <span className="history-recipe">{f.name}</span>
+                       <span className="history-meta">
+                         {formatRecipeVolume(f.metadata?.volumeMl)} · {f.metadata?.calories ?? '--'} {uiLabels.kcal}
+                       </span>
+                     </div>
+                     <strong className="history-score">{f.metadata?.score?.total ?? f.rating ?? '--'}</strong>
+                     <span className="history-star" aria-hidden="true">☆</span>
                   </div>
                ))}
             </div>
