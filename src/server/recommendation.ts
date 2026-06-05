@@ -289,20 +289,13 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
   const inventoryModeText = ignoreInventory
     ? 'Ignore inventory is on: randomly generate drink recommendations without requiring, matching, or conserving the listed inventory. Inventory fit should not affect the score.'
     : 'Ignore inventory is off: use inventory as useful context, and honor required ingredients when present.';
-  const coffeeDimensions = request.language === 'zh'
-    ? ['甜度平衡', '苦味顺滑度', '香气/风味感', '口感厚度/滑顺度', '整体协调度']
-    : ['Sweetness balance', 'Bitterness smoothness', 'Aroma/flavor presence', 'Body/smoothness', 'Overall harmony'];
-  const alcoholDimensions = request.language === 'zh'
-    ? ['酒精感平衡', '甜度/酸度平衡', '香气', '口感顺滑度', '整体协调感']
-    : ['Alcohol balance', 'Sweetness/acidity balance', 'Aroma', 'Smoothness', 'Overall harmony'];
   const responseLanguageName = request.language === 'zh' ? 'Simplified Chinese' : 'English';
   const localizedCoffeeDimensions = request.language === 'zh'
-    ? ['甜度平衡', '苦味顺滑度', '香气/风味感', '口感厚度/滑顺度', '整体协调度']
+    ? ['\u751c\u5ea6\u5e73\u8861', '\u82e6\u5473\u987a\u6ed1\u5ea6', '\u9999\u6c14/\u98ce\u5473\u611f', '\u53e3\u611f\u539a\u5ea6/\u6ed1\u987a\u5ea6', '\u6574\u4f53\u534f\u8c03\u5ea6']
     : ['Sweetness balance', 'Bitterness smoothness', 'Aroma/flavor presence', 'Body/smoothness', 'Overall harmony'];
   const localizedAlcoholDimensions = request.language === 'zh'
-    ? ['酒精感平衡', '甜度/酸度平衡', '香气', '口感顺滑度', '整体协调感']
+    ? ['\u9152\u7cbe\u611f\u5e73\u8861', '\u751c\u5ea6/\u9178\u5ea6\u5e73\u8861', '\u9999\u6c14', '\u53e3\u611f\u987a\u6ed1\u5ea6', '\u6574\u4f53\u534f\u8c03\u611f']
     : ['Alcohol balance', 'Sweetness/acidity balance', 'Aroma', 'Smoothness', 'Overall harmony'];
-
   return [
     'You are Sip Mind, an AI drink recommendation assistant.',
     `Response language: ${responseLanguageName}.`,
@@ -344,3 +337,4 @@ export function buildRecommendationPrompt(request: RecommendationRequest): strin
     frugalText
   ].join('\n');
 }
+

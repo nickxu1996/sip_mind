@@ -2198,6 +2198,7 @@ body {
   background: #fbf7e3;
   color: #9a6a1e;
   padding: 3px 6px;
+  font-size: 0.72rem;
 }
 
 .score-block {
@@ -2208,7 +2209,7 @@ body {
 }
 
 .total-score strong {
-  font-size: 1.5rem;
+  font-size: 1.72rem;
   font-weight: 500;
 }
 
@@ -2431,25 +2432,26 @@ body {
 }
 
 .recommendation-card h3 {
-  font-size: 1rem;
+  font-size: 1.08rem;
 }
 
 .calorie-row {
-  font-size: 0.76rem;
+  font-size: 0.84rem;
 }
 
 .dimension-scores span {
-  font-size: 0.58rem;
+  font-size: 0.66rem;
 }
 
 .recipe-section h4 {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
 }
 
 .recipe-section p,
 .recipe-section ul,
 .recipe-section ol {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
+  line-height: 1.42;
 }
 
 @media (max-width: 1200px) {
@@ -2488,12 +2490,12 @@ body {
   }
 
   .recommendation-card h3 {
-    font-size: 0.82rem;
+    font-size: 0.9rem;
   }
 
   .recipe-section p,
   .recipe-section ul,
   .recipe-section ol {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
   }
 }

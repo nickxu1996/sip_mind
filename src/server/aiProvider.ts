@@ -24,10 +24,11 @@ export function createAiProvider(env: Record<string, string | undefined>): AiPro
       model: modelName,
       async generateRecommendations(prompt: string) {
         let lastError: unknown;
+        let activePrompt = prompt;
 
         for (let attempt = 0; attempt < 3; attempt += 1) {
           try {
-            const result = await model.generateContent(prompt);
+            const result = await model.generateContent(activePrompt);
             const responseText = result.response.text();
             return parseJsonResponse(responseText);
           } catch (error) {
@@ -37,6 +38,9 @@ export function createAiProvider(env: Record<string, string | undefined>): AiPro
               throw new Error(message.includes('JSON') || message.includes('Expected')
                 ? `AI provider returned invalid JSON: ${message}`
                 : message);
+            }
+            if (message.includes('JSON') || message.includes('Expected') || message.includes('Unexpected')) {
+              activePrompt = `${prompt}\n\nYour previous response was invalid JSON. Regenerate the full response from scratch. Return only a single valid JSON object. Use double quotes for every string, include commas between all array items and object properties, and do not include markdown or comments.`;
             }
             await delay(800 * (attempt + 1));
           }
@@ -60,7 +64,12 @@ export function parseJsonResponse(responseText: string) {
   const cleaned = stripInvisibleControlChars(responseText).trim();
   const fencedMatch = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   const candidate = fencedMatch ? fencedMatch[1].trim() : cleaned;
-  return JSON.parse(extractJsonSubstring(candidate));
+  const jsonText = extractJsonSubstring(candidate);
+  try {
+    return JSON.parse(jsonText);
+  } catch (error) {
+    return JSON.parse(repairCommonJsonIssues(jsonText));
+  }
 }
 
 function stripInvisibleControlChars(input: string) {
@@ -76,9 +85,17 @@ function extractJsonSubstring(input: string) {
   const objectSlice = firstBrace >= 0 && lastBrace > firstBrace ? input.slice(firstBrace, lastBrace + 1) : '';
   const arraySlice = firstBracket >= 0 && lastBracket > firstBracket ? input.slice(firstBracket, lastBracket + 1) : '';
 
-  if (objectSlice && (!arraySlice || objectSlice.length <= arraySlice.length)) return objectSlice;
+  if (objectSlice && (firstBracket < 0 || firstBrace <= firstBracket)) return objectSlice;
   if (arraySlice) return arraySlice;
   return input;
+}
+
+function repairCommonJsonIssues(input: string) {
+  return input
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/"\s+(?=")/g, '",');
 }
 
 function isTransientAiError(message: string) {
