@@ -2547,19 +2547,28 @@ body {
 .results-area {
   gap: 4px;
   padding: 4px;
+  justify-content: stretch;
+}
+
+.results-area.result-count-1 {
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
 }
 
 .results-area.result-count-2 {
-  justify-content: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-content: stretch;
   column-gap: 4px;
 }
 
 .results-area.result-count-3 {
-  justify-content: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: stretch;
   column-gap: 4px;
 }
 
 .recommendation-card {
+  width: 100%;
   padding: 25px 6px 9px;
   gap: 6px;
 }
