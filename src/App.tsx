@@ -319,8 +319,12 @@ export function App() {
   const [guestDailyLimit, setGuestDailyLimit] = useState('10');
   const inventoryLanesRef = useRef<HTMLDivElement | null>(null);
   const generationAreaRef = useRef<HTMLDivElement | null>(null);
+  const favoriteSignaturesRef = useRef<Set<string>>(new Set());
   const [inventoryLanesHeight, setInventoryLanesHeight] = useState(0);
   const [favorites, setFavorites] = useState<any[]>([]);
+  const [favoriteToast, setFavoriteToast] = useState('');
+  const [selectedFavorite, setSelectedFavorite] = useState<any | null>(null);
+  const [favoriteEditDraft, setFavoriteEditDraft] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
   const [flashingNoLeftoverId, setFlashingNoLeftoverId] = useState<string | null>(null);
@@ -391,6 +395,11 @@ export function App() {
       clearFoodLibrary: 'Clear food library',
       quickGenerate: 'Quick generate',
       quickGenerateHint: 'No setup needed. Click quick generate to try it.',
+      favoriteDuplicate: 'This drink is already saved.',
+      favoriteDetails: 'Favorite details',
+      deleteFavorite: 'Delete',
+      deleteFavoriteConfirm: 'Delete this favorite?',
+      saveChanges: 'Save changes',
       shareFoodLibrary: 'I agree to share this food to the public food library.',
       shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
       guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
@@ -426,6 +435,11 @@ export function App() {
       clearFoodLibrary: '\u6e05\u7a7a\u98df\u54c1\u5e93',
       quickGenerate: '\u5feb\u901f\u751f\u6210',
       quickGenerateHint: '\u65e0\u9700\u4efb\u4f55\u914d\u7f6e\uff0c\u70b9\u51fb\u5feb\u901f\u751f\u6210\u4f53\u9a8c\u5427~',
+      favoriteDuplicate: '\u8be5\u996e\u54c1\u5df2\u6536\u85cf\uff01',
+      favoriteDetails: '\u6536\u85cf\u8be6\u60c5',
+      deleteFavorite: '\u5220\u9664',
+      deleteFavoriteConfirm: '\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u6536\u85cf\u5417\uff1f',
+      saveChanges: '\u4fdd\u5b58\u4fee\u6539',
       shareFoodLibrary: '\u6211\u540c\u610f\u5c06\u8be5\u98df\u54c1\u5171\u4eab\u5230\u516c\u5f00\u98df\u54c1\u5e93\u3002',
       shareFoodLibraryHint: '\u82e5\u4e0d\u52fe\u9009\uff0c\u5219\u53ea\u51fa\u73b0\u5728\u4e2a\u4eba\u98df\u54c1\u5e93\u3002',
       guestDailyLimit: (count: string) => `\u672a\u767b\u5f55\u7528\u6237\u6bcf\u65e5\u53ef\u514d\u8d39\u751f\u6210${count}\u6b21`,
@@ -532,6 +546,21 @@ export function App() {
     window.addEventListener('click', clear);
     return () => window.removeEventListener('click', clear);
   }, [flashingNoLeftoverId]);
+
+  useEffect(() => {
+    if (!favoriteToast) return;
+    const timeout = window.setTimeout(() => setFavoriteToast(''), 1600);
+    const clear = () => setFavoriteToast('');
+    window.addEventListener('click', clear);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('click', clear);
+    };
+  }, [favoriteToast]);
+
+  useEffect(() => {
+    favoriteSignaturesRef.current = new Set(favorites.map(getFavoriteSignature));
+  }, [favorites]);
 
   useEffect(() => {
     setPreferencesStorageReady(false);
@@ -839,12 +868,80 @@ export function App() {
   }
 
   async function saveAsFavorite(rec: any) {
-    if (!user) return;
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+    const favorite = buildFavoriteFromRecommendation(rec, favorites);
+    const signature = getFavoriteSignature(favorite);
+    if (favoriteSignaturesRef.current.has(signature)) {
+      setFavoriteToast(uiLabels.favoriteDuplicate);
+      return;
+    }
+    favoriteSignaturesRef.current.add(signature);
+
+    const optimisticId = -Date.now();
+    const optimisticFavorite = { ...favorite, id: optimisticId, created_at: new Date().toISOString() };
+    setFavorites(prev => sortFavorites([optimisticFavorite, ...prev]));
+
     try {
-      const fav = { name: rec.name, rating: 5, ingredients: rec.ingredients, steps: rec.steps, metadata: {alcohol: rec.alcohol, caffeine: rec.caffeine, temperature: rec.temperature, calories: rec.calories, volumeMl: rec.volumeMl, score: rec.score} };
-      await fetch('/api/user/favorites', { method: 'POST', headers: getUserAuthorizationHeaders({'Content-Type':'application/json'}), body: JSON.stringify({ favorite: fav })});
+      const response = await fetchWithRetry('/api/user/favorites', {
+        method: 'POST',
+        headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ favorite })
+      });
+      if (!response.ok) throw new Error('Favorite save failed');
+      const data = await response.json();
+      setFavorites(prev => sortFavorites(prev.map(item => item.id === optimisticId ? { ...optimisticFavorite, id: data.id } : item)));
+    } catch (e) {
+      console.error(e);
+      favoriteSignaturesRef.current.delete(signature);
+      setFavorites(prev => prev.filter(item => item.id !== optimisticId));
+    }
+  }
+
+  function openFavorite(favorite: any) {
+    setSelectedFavorite(favorite);
+    setFavoriteEditDraft(createFavoriteEditDraft(favorite));
+  }
+
+  async function deleteFavorite(favorite: any) {
+    if (!user || !favorite?.id) return;
+    if (!window.confirm(uiLabels.deleteFavoriteConfirm)) return;
+    const previous = favorites;
+    setFavorites(prev => prev.filter(item => item.id !== favorite.id));
+    if (selectedFavorite?.id === favorite.id) {
+      setSelectedFavorite(null);
+      setFavoriteEditDraft(null);
+    }
+    try {
+      const response = await fetchWithRetry(`/api/user/favorites/${favorite.id}`, {
+        method: 'DELETE',
+        headers: getUserAuthorizationHeaders()
+      });
+      if (!response.ok) throw new Error('Favorite delete failed');
+    } catch (error) {
+      console.error(error);
+      setFavorites(previous);
+    }
+  }
+
+  async function saveFavoriteEdits() {
+    if (!user || !favoriteEditDraft || !selectedFavorite?.id) return;
+    const updated = favoriteFromEditDraft(selectedFavorite, favoriteEditDraft);
+    setSelectedFavorite(updated);
+    setFavorites(prev => sortFavorites(prev.map(item => item.id === updated.id ? updated : item)));
+    try {
+      const response = await fetchWithRetry('/api/user/favorites', {
+        method: 'POST',
+        headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ favorite: updated })
+      });
+      if (!response.ok) throw new Error('Favorite update failed');
+    } catch (error) {
+      console.error(error);
       fetchUserData();
-    } catch (e) { console.error(e); }
+    }
   }
 
   function randomize() {
@@ -1084,6 +1181,42 @@ export function App() {
             <div className="modal-actions">
               <button onClick={() => setShowContact(false)}>{t.cancel}</button>
               <button className="primary-action" style={{marginTop: 0, width: 'auto'}} onClick={submitContact}>{contactLabels.send}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {favoriteToast && <div className="toast-message">{favoriteToast}</div>}
+
+      {selectedFavorite && favoriteEditDraft && (
+        <div className="modal-backdrop" onClick={() => { setSelectedFavorite(null); setFavoriteEditDraft(null); }}>
+          <div className="modal favorite-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-title-row">
+              <h2>{uiLabels.favoriteDetails}</h2>
+              <button className="modal-close-button" onClick={() => { setSelectedFavorite(null); setFavoriteEditDraft(null); }} aria-label={t.close}>x</button>
+            </div>
+            <div className="form-grid favorite-edit-grid">
+              <label>{language === 'en' ? 'Name' : '\u540d\u79f0'}
+                <input value={favoriteEditDraft.name} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, name: e.target.value })} />
+              </label>
+              <label>{uiLabels.intro}
+                <textarea value={favoriteEditDraft.reason} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, reason: e.target.value })} />
+              </label>
+              <label>{uiLabels.ingredients}
+                <textarea value={favoriteEditDraft.ingredientsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, ingredientsText: e.target.value })} />
+              </label>
+              <label>{uiLabels.steps}
+                <textarea value={favoriteEditDraft.stepsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, stepsText: e.target.value })} />
+              </label>
+            </div>
+            <div className="favorite-detail-meta">
+              <span>{formatRecipeVolume(selectedFavorite.metadata?.volumeMl)}</span>
+              <span>{selectedFavorite.metadata?.calories ?? '--'} {uiLabels.kcal}</span>
+              <span>{uiLabels.score}: {selectedFavorite.metadata?.score?.total ?? selectedFavorite.rating ?? '--'}</span>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => deleteFavorite(selectedFavorite)}>{uiLabels.deleteFavorite}</button>
+              <button className="primary-action" style={{marginTop:0, width:'auto'}} onClick={saveFavoriteEdits}>{uiLabels.saveChanges}</button>
             </div>
           </div>
         </div>
@@ -1591,16 +1724,18 @@ export function App() {
             <h2><span className="section-index">4.</span>{t.favorites}</h2>
             <div className="history-list">
                {favorites.map(f => (
-                  <div key={f.id} className="history-item">
-                     <div className="history-thumb">{String(f.name ?? '?').slice(0, 1)}</div>
-                     <div className="history-main">
-                       <span className="history-recipe">{f.name}</span>
-                       <span className="history-meta">
-                         {formatRecipeVolume(f.metadata?.volumeMl)} · {f.metadata?.calories ?? '--'} {uiLabels.kcal}
-                       </span>
-                     </div>
-                     <strong className="history-score">{f.metadata?.score?.total ?? f.rating ?? '--'}</strong>
-                     <span className="history-star" aria-hidden="true">☆</span>
+                  <div key={f.id} className="history-item favorite-history-item">
+                     <button className="history-open-button" onClick={() => openFavorite(f)}>
+                       <div className="history-thumb">{String(getFavoriteDisplayName(f, favorites) ?? '?').slice(0, 1)}</div>
+                       <div className="history-main">
+                         <span className="history-recipe">{getFavoriteDisplayName(f, favorites)}</span>
+                         <span className="history-meta">
+                           {formatRecipeVolume(f.metadata?.volumeMl)} · {f.metadata?.calories ?? '--'} {uiLabels.kcal}
+                         </span>
+                       </div>
+                       <strong className="history-score">{f.metadata?.score?.total ?? f.rating ?? '--'}</strong>
+                     </button>
+                     <button className="history-delete-button" onClick={() => deleteFavorite(f)} aria-label={uiLabels.deleteFavorite}>x</button>
                   </div>
                ))}
             </div>
@@ -1608,6 +1743,128 @@ export function App() {
       </div>
     </main>
   );
+}
+
+function buildFavoriteFromRecommendation(rec: any, existingFavorites: any[]) {
+  const baseName = String(rec.name ?? '').trim() || 'Untitled drink';
+  const baseFavorite = {
+    name: baseName,
+    rating: normalizeDisplayScore(rec.score?.total ?? rec.rating ?? 5),
+    ingredients: normalizeRecipeTextArray(rec.ingredients),
+    steps: normalizeRecipeTextArray(rec.steps),
+    metadata: {
+      alcohol: rec.alcohol,
+      caffeine: rec.caffeine,
+      temperature: rec.temperature,
+      calories: rec.calories,
+      volumeMl: rec.volumeMl,
+      score: rec.score,
+      reason: rec.reason ?? rec.intro ?? '',
+      favoriteBaseName: baseName
+    }
+  };
+  const signature = getFavoriteSignature(baseFavorite);
+  const sameBaseFavorites = existingFavorites.filter(favorite => getFavoriteBaseName(favorite) === baseName);
+  const distinctSameBase = new Set(sameBaseFavorites.map(getFavoriteSignature));
+  const favoriteVersion = distinctSameBase.has(signature) ? getFavoriteVersion(sameBaseFavorites.find(item => getFavoriteSignature(item) === signature)) : distinctSameBase.size + 1;
+  return {
+    ...baseFavorite,
+    metadata: {
+      ...baseFavorite.metadata,
+      favoriteSignature: signature,
+      favoriteVersion
+    }
+  };
+}
+
+function createFavoriteEditDraft(favorite: any) {
+  return {
+    name: getFavoriteBaseName(favorite),
+    reason: String(favorite?.metadata?.reason ?? ''),
+    ingredientsText: normalizeRecipeTextArray(favorite?.ingredients).join('\n'),
+    stepsText: normalizeRecipeTextArray(favorite?.steps).join('\n')
+  };
+}
+
+function favoriteFromEditDraft(favorite: any, draft: any) {
+  const baseName = String(draft.name ?? '').trim() || getFavoriteBaseName(favorite);
+  const { favoriteSignature: _oldSignature, ...metadataWithoutSignature } = favorite.metadata ?? {};
+  const updated = {
+    ...favorite,
+    name: baseName,
+    ingredients: splitMultilineRecipeText(draft.ingredientsText),
+    steps: splitMultilineRecipeText(draft.stepsText),
+    metadata: {
+      ...metadataWithoutSignature,
+      reason: String(draft.reason ?? '').trim(),
+      favoriteBaseName: baseName
+    }
+  };
+  return {
+    ...updated,
+    metadata: {
+      ...updated.metadata,
+      favoriteSignature: getFavoriteSignature(updated)
+    }
+  };
+}
+
+function splitMultilineRecipeText(value: unknown) {
+  return String(value ?? '')
+    .split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeRecipeTextArray(value: unknown) {
+  if (Array.isArray(value)) return value.map(item => String(item ?? '').trim()).filter(Boolean);
+  if (typeof value === 'string') return splitMultilineRecipeText(value);
+  return [];
+}
+
+function getFavoriteBaseName(favorite: any) {
+  return String(favorite?.metadata?.favoriteBaseName ?? favorite?.name ?? '').replace(/\s+V\d+$/i, '').trim();
+}
+
+function getFavoriteVersion(favorite: any) {
+  const version = Number(favorite?.metadata?.favoriteVersion);
+  return Number.isFinite(version) && version > 0 ? version : 1;
+}
+
+function getFavoriteDisplayName(favorite: any, allFavorites: any[]) {
+  const baseName = getFavoriteBaseName(favorite);
+  const sameBase = allFavorites.filter(item => getFavoriteBaseName(item) === baseName);
+  const distinctSignatures = new Set(sameBase.map(getFavoriteSignature));
+  if (distinctSignatures.size > 1 || getFavoriteVersion(favorite) > 1) {
+    return `${baseName} V${getFavoriteVersion(favorite)}`;
+  }
+  return baseName;
+}
+
+function getFavoriteSignature(favorite: any) {
+  if (favorite?.metadata?.favoriteSignature) return String(favorite.metadata.favoriteSignature);
+  const metadata = favorite?.metadata ?? {};
+  return JSON.stringify({
+    name: getFavoriteBaseName(favorite),
+    reason: String(metadata.reason ?? '').trim(),
+    ingredients: normalizeRecipeTextArray(favorite?.ingredients),
+    steps: normalizeRecipeTextArray(favorite?.steps),
+    calories: metadata.calories ?? null,
+    volumeMl: metadata.volumeMl ?? null,
+    alcohol: metadata.alcohol ?? null,
+    caffeine: metadata.caffeine ?? null,
+    temperature: metadata.temperature ?? null,
+    score: metadata.score ?? null
+  });
+}
+
+function sortFavorites(items: any[]) {
+  return [...items].sort((left, right) => {
+    const rightScore = Number(right?.metadata?.score?.total ?? right?.rating ?? 0);
+    const leftScore = Number(left?.metadata?.score?.total ?? left?.rating ?? 0);
+    if (rightScore !== leftScore) return rightScore - leftScore;
+    return String(right?.created_at ?? '').localeCompare(String(left?.created_at ?? ''));
+  });
 }
 
 function pickRandom<T>(items: T[]): T {

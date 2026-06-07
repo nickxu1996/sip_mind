@@ -205,4 +205,23 @@ describe('SQLite storage', () => {
     expect(history[0].provider).toBe('gemini');
     expect(history[0].recommendations[0]?.name).toBe('Iced Tea Cooler');
   });
+
+  it('does not insert duplicate favorites with the same signature', () => {
+    const database = createDatabase(makeDbPath());
+    const userId = database.createUser({ username: 'favorite-user', password: 'secret123' });
+    const favorite = {
+      name: 'Iced Latte',
+      rating: 88,
+      ingredients: ['Coffee 120 ml', 'Milk 120 ml'],
+      steps: ['Mix and serve cold'],
+      metadata: { favoriteSignature: 'same-drink-signature', calories: 120 }
+    };
+
+    const firstId = database.upsertFavorite(userId, favorite);
+    const secondId = database.upsertFavorite(userId, favorite);
+    const favorites = database.getFavorites(userId) as any[];
+
+    expect(secondId).toBe(firstId);
+    expect(favorites).toHaveLength(1);
+  });
 });

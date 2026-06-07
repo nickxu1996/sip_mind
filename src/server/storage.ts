@@ -131,6 +131,14 @@ function upsertFoodLibraryByName(db: Database.Database, userId: number, name: st
   return changes;
 }
 
+function getFavoriteMetadata(row: any) {
+  try {
+    return JSON.parse(row?.metadata_json ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
 export function orderInventoryCategories(categories: string[]) {
   const seen = new Set<string>();
   const ordered = categories.filter(category => {
@@ -542,6 +550,12 @@ export function createDatabase(dbPath: string) {
         stmt.run(data.name, data.rating, JSON.stringify(data.ingredients), JSON.stringify(data.steps), JSON.stringify(data.metadata), data.id, userId);
         return data.id;
       } else {
+        const favoriteSignature = String(data?.metadata?.favoriteSignature ?? '');
+        if (favoriteSignature) {
+          const existing = db.prepare('SELECT id, metadata_json FROM favorites WHERE user_id = ?').all(userId) as any[];
+          const duplicate = existing.find(row => getFavoriteMetadata(row).favoriteSignature === favoriteSignature);
+          if (duplicate) return duplicate.id;
+        }
         const stmt = db.prepare(`
           INSERT INTO favorites (user_id, name, rating, ingredients_json, steps_json, metadata_json)
           VALUES (?, ?, ?, ?, ?, ?)
