@@ -325,6 +325,8 @@ export function App() {
   const [favoriteToast, setFavoriteToast] = useState('');
   const [selectedFavorite, setSelectedFavorite] = useState<any | null>(null);
   const [favoriteEditDraft, setFavoriteEditDraft] = useState<any | null>(null);
+  const [favoriteEditMode, setFavoriteEditMode] = useState(false);
+  const [pendingDeleteFavoriteId, setPendingDeleteFavoriteId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
   const [flashingNoLeftoverId, setFlashingNoLeftoverId] = useState<string | null>(null);
@@ -397,7 +399,10 @@ export function App() {
       quickGenerateHint: 'No setup needed. Click quick generate to try it.',
       favoriteDuplicate: 'This drink is already saved.',
       favoriteDetails: 'Favorite details',
+      viewFavorite: 'View',
+      personalizeFavorite: 'Personalize',
       deleteFavorite: 'Delete',
+      confirmDeleteFavorite: 'Confirm',
       deleteFavoriteConfirm: 'Delete this favorite?',
       saveChanges: 'Save changes',
       shareFoodLibrary: 'I agree to share this food to the public food library.',
@@ -437,7 +442,10 @@ export function App() {
       quickGenerateHint: '\u65e0\u9700\u4efb\u4f55\u914d\u7f6e\uff0c\u70b9\u51fb\u5feb\u901f\u751f\u6210\u4f53\u9a8c\u5427~',
       favoriteDuplicate: '\u8be5\u996e\u54c1\u5df2\u6536\u85cf\uff01',
       favoriteDetails: '\u6536\u85cf\u8be6\u60c5',
+      viewFavorite: '\u67e5\u770b',
+      personalizeFavorite: '\u4e2a\u6027\u5316',
       deleteFavorite: '\u5220\u9664',
+      confirmDeleteFavorite: 'Confirm',
       deleteFavoriteConfirm: '\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u6536\u85cf\u5417\uff1f',
       saveChanges: '\u4fdd\u5b58\u4fee\u6539',
       shareFoodLibrary: '\u6211\u540c\u610f\u5c06\u8be5\u98df\u54c1\u5171\u4eab\u5230\u516c\u5f00\u98df\u54c1\u5e93\u3002',
@@ -903,16 +911,29 @@ export function App() {
   function openFavorite(favorite: any) {
     setSelectedFavorite(favorite);
     setFavoriteEditDraft(createFavoriteEditDraft(favorite));
+    setFavoriteEditMode(false);
+    setPendingDeleteFavoriteId(null);
   }
 
-  async function deleteFavorite(favorite: any) {
+  function closeFavoriteDetail() {
+    setSelectedFavorite(null);
+    setFavoriteEditDraft(null);
+    setFavoriteEditMode(false);
+    setPendingDeleteFavoriteId(null);
+  }
+
+  function requestFavoriteDelete(favorite: any) {
+    if (!favorite?.id) return;
+    setPendingDeleteFavoriteId(current => current === favorite.id ? null : favorite.id);
+  }
+
+  async function confirmFavoriteDelete(favorite: any) {
     if (!user || !favorite?.id) return;
-    if (!window.confirm(uiLabels.deleteFavoriteConfirm)) return;
     const previous = favorites;
+    setPendingDeleteFavoriteId(null);
     setFavorites(prev => prev.filter(item => item.id !== favorite.id));
     if (selectedFavorite?.id === favorite.id) {
-      setSelectedFavorite(null);
-      setFavoriteEditDraft(null);
+      closeFavoriteDetail();
     }
     try {
       const response = await fetchWithRetry(`/api/user/favorites/${favorite.id}`, {
@@ -938,6 +959,7 @@ export function App() {
         body: JSON.stringify({ favorite: updated })
       });
       if (!response.ok) throw new Error('Favorite update failed');
+      setFavoriteEditMode(false);
     } catch (error) {
       console.error(error);
       fetchUserData();
@@ -1189,35 +1211,56 @@ export function App() {
       {favoriteToast && <div className="toast-message">{favoriteToast}</div>}
 
       {selectedFavorite && favoriteEditDraft && (
-        <div className="modal-backdrop" onClick={() => { setSelectedFavorite(null); setFavoriteEditDraft(null); }}>
+        <div className="modal-backdrop" onClick={closeFavoriteDetail}>
           <div className="modal favorite-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-title-row">
-              <h2>{uiLabels.favoriteDetails}</h2>
-              <button className="modal-close-button" onClick={() => { setSelectedFavorite(null); setFavoriteEditDraft(null); }} aria-label={t.close}>x</button>
-            </div>
-            <div className="form-grid favorite-edit-grid">
-              <label>{language === 'en' ? 'Name' : '\u540d\u79f0'}
-                <input value={favoriteEditDraft.name} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, name: e.target.value })} />
-              </label>
-              <label>{uiLabels.intro}
-                <textarea value={favoriteEditDraft.reason} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, reason: e.target.value })} />
-              </label>
-              <label>{uiLabels.ingredients}
-                <textarea value={favoriteEditDraft.ingredientsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, ingredientsText: e.target.value })} />
-              </label>
-              <label>{uiLabels.steps}
-                <textarea value={favoriteEditDraft.stepsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, stepsText: e.target.value })} />
-              </label>
+            <div className="modal-title-row favorite-title-row">
+              <h2>{getFavoriteDisplayName(selectedFavorite, favorites)}</h2>
+              <div className="favorite-title-actions">
+                <button type="button" className="text-button" onClick={() => setFavoriteEditMode(prev => !prev)}>{uiLabels.personalizeFavorite}</button>
+                <span className="favorite-delete-wrap">
+                  <button type="button" className="text-button danger-text-button" onClick={() => requestFavoriteDelete(selectedFavorite)}>{uiLabels.deleteFavorite}</button>
+                  {pendingDeleteFavoriteId === selectedFavorite.id && (
+                    <span className="delete-confirm-popover">
+                      <span>{uiLabels.deleteFavoriteConfirm}</span>
+                      <button type="button" onClick={() => confirmFavoriteDelete(selectedFavorite)}>{uiLabels.confirmDeleteFavorite}</button>
+                    </span>
+                  )}
+                </span>
+                <button className="modal-close-button" onClick={closeFavoriteDetail} aria-label={t.close}>x</button>
+              </div>
             </div>
             <div className="favorite-detail-meta">
               <span>{formatRecipeVolume(selectedFavorite.metadata?.volumeMl)}</span>
               <span>{selectedFavorite.metadata?.calories ?? '--'} {uiLabels.kcal}</span>
               <span>{uiLabels.score}: {selectedFavorite.metadata?.score?.total ?? selectedFavorite.rating ?? '--'}</span>
             </div>
-            <div className="modal-actions">
-              <button onClick={() => deleteFavorite(selectedFavorite)}>{uiLabels.deleteFavorite}</button>
-              <button className="primary-action" style={{marginTop:0, width:'auto'}} onClick={saveFavoriteEdits}>{uiLabels.saveChanges}</button>
-            </div>
+            {favoriteEditMode ? (
+              <>
+                <div className="form-grid favorite-edit-grid">
+                  <label>{language === 'en' ? 'Name' : '\u540d\u79f0'}
+                    <input value={favoriteEditDraft.name} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, name: e.target.value })} />
+                  </label>
+                  <label>{uiLabels.intro}
+                    <textarea value={favoriteEditDraft.reason} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, reason: e.target.value })} />
+                  </label>
+                  <label>{uiLabels.ingredients}
+                    <textarea value={favoriteEditDraft.ingredientsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, ingredientsText: e.target.value })} />
+                  </label>
+                  <label>{uiLabels.steps}
+                    <textarea value={favoriteEditDraft.stepsText} onChange={e => setFavoriteEditDraft({ ...favoriteEditDraft, stepsText: e.target.value })} />
+                  </label>
+                </div>
+                <div className="modal-actions">
+                  <button className="primary-action" style={{marginTop:0, width:'auto'}} onClick={saveFavoriteEdits}>{uiLabels.saveChanges}</button>
+                </div>
+              </>
+            ) : (
+              <div className="favorite-read-view">
+                <section className="recipe-section"><h4>{uiLabels.intro}</h4><p>{selectedFavorite.metadata?.reason || '--'}</p></section>
+                <section className="recipe-section"><h4>{uiLabels.ingredients}</h4><ul>{normalizeRecipeTextArray(selectedFavorite.ingredients).map((ingredient, index) => <li key={index}>{ingredient}</li>)}</ul></section>
+                <section className="recipe-section"><h4>{uiLabels.steps}</h4><ol>{normalizeRecipeTextArray(selectedFavorite.steps).map((step, index) => <li key={index}>{formatStepText(step)}</li>)}</ol></section>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1725,7 +1768,7 @@ export function App() {
             <div className="history-list">
                {favorites.map(f => (
                   <div key={f.id} className="history-item favorite-history-item">
-                     <button className="history-open-button" onClick={() => openFavorite(f)}>
+                     <div className="history-open-button">
                        <div className="history-thumb">{String(getFavoriteDisplayName(f, favorites) ?? '?').slice(0, 1)}</div>
                        <div className="history-main">
                          <span className="history-recipe">{getFavoriteDisplayName(f, favorites)}</span>
@@ -1734,8 +1777,19 @@ export function App() {
                          </span>
                        </div>
                        <strong className="history-score">{f.metadata?.score?.total ?? f.rating ?? '--'}</strong>
-                     </button>
-                     <button className="history-delete-button" onClick={() => deleteFavorite(f)} aria-label={uiLabels.deleteFavorite}>x</button>
+                     </div>
+                     <div className="history-actions">
+                       <button className="history-action-button" onClick={() => openFavorite(f)}>{uiLabels.viewFavorite}</button>
+                       <span className="favorite-delete-wrap">
+                         <button className="history-action-button danger-text-button" onClick={() => requestFavoriteDelete(f)}>{uiLabels.deleteFavorite}</button>
+                         {pendingDeleteFavoriteId === f.id && (
+                           <span className="delete-confirm-popover">
+                             <span>{uiLabels.deleteFavoriteConfirm}</span>
+                             <button type="button" onClick={() => confirmFavoriteDelete(f)}>{uiLabels.confirmDeleteFavorite}</button>
+                           </span>
+                         )}
+                       </span>
+                     </div>
                   </div>
                ))}
             </div>

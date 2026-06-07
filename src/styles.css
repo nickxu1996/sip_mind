@@ -2251,7 +2251,7 @@ body {
 
 .history-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 0 0 10px;
@@ -2268,12 +2268,6 @@ body {
   border: 0;
   background: transparent;
   text-align: left;
-  cursor: pointer;
-}
-
-.history-open-button:hover .history-recipe {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .history-thumb {
@@ -2314,20 +2308,58 @@ body {
   font-weight: 500;
 }
 
-.history-delete-button {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  color: #a8a29e;
-  font-size: 0.9rem;
-  line-height: 1;
+.history-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-.history-delete-button:hover {
-  border-color: #ded8d0;
-  color: #7f1d1d;
+.history-action-button {
+  min-height: 26px;
+  padding: 2px 6px;
+  border-color: var(--sip-border-soft);
+  background: #fff;
+  color: var(--sip-muted);
+  font-size: 0.68rem;
+}
+
+.history-action-button:hover {
+  color: var(--sip-ink);
+}
+
+.danger-text-button {
+  color: #8a3a32;
+}
+
+.favorite-delete-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.delete-confirm-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1250;
+  display: grid;
+  gap: 7px;
+  min-width: 160px;
+  padding: 9px;
+  border: 1px solid var(--sip-border);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(28, 24, 20, 0.14);
+  color: var(--sip-ink);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.delete-confirm-popover button {
+  min-height: 28px;
+  background: #1d1a17;
+  color: #fff;
+  font-size: 0.72rem;
 }
 
 .toast-message {
@@ -2350,6 +2382,25 @@ body {
   max-width: 560px;
 }
 
+.favorite-title-row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.favorite-title-row h2 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.favorite-title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .favorite-edit-grid textarea {
   min-height: 86px;
   resize: vertical;
@@ -2369,6 +2420,19 @@ body {
   border: 1px solid var(--sip-border-soft);
   border-radius: 999px;
   background: #fbfaf8;
+}
+
+.favorite-read-view {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.favorite-read-view .recipe-section ul,
+.favorite-read-view .recipe-section ol,
+.favorite-read-view .recipe-section p {
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 
 @media (max-width: 1200px) {
@@ -2439,11 +2503,19 @@ body {
   }
 
   .history-item {
-    grid-template-columns: minmax(0, 1fr) 26px;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .history-open-button {
     grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+
+  .history-actions {
+    gap: 4px;
+  }
+
+  .history-action-button {
+    padding-inline: 5px;
   }
 
   .history-thumb {
