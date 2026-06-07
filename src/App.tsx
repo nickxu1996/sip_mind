@@ -1042,7 +1042,10 @@ export function App() {
             <strong>{'\u676f\u4e2d\u7075\u611f'}</strong>
           </div>
         </div>
-        <p className="top-bar-intro">{introText}</p>
+        <div className="top-bar-intro">
+          <p>{introText}</p>
+          <p>{uiLabels.guestDailyLimit(guestDailyLimit)}</p>
+        </div>
         <div className="settings-bar">
           <button
             type="button"
@@ -1340,7 +1343,6 @@ export function App() {
           <div className="section-heading">
             <div className="inventory-heading-main">
               <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '\uff08\u4e0d\u8bbe\u7f6e\u5e93\u5b58\u4e5f\u53ef\u4ee5\u968f\u673a\u751f\u6210\u54e6~\uff09'}</small></h2>
-              <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
             <button className="primary-action quick-generate-button desktop-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
               {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}

@@ -2693,6 +2693,18 @@ body {
   flex: 1 1 auto;
 }
 
+.top-bar-intro {
+  display: grid;
+  gap: 2px;
+}
+
+.top-bar-intro p {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}
+
 .inventory-lanes,
 .food-library {
   max-height: calc(37px * 8 + 4px * 7);
