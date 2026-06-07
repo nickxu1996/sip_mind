@@ -12,6 +12,17 @@ type AuthCredentials = { username: string; password: string };
 type StoredAuthSession = { user: User; token?: string; credentials?: AuthCredentials };
 type PreferenceKey = 'alcohol' | 'caffeine' | 'temperature' | 'calories';
 type OptionKey = 'any' | 'high' | 'low' | 'none' | 'hot' | 'room' | 'cold' | 'medium' | 'very-low';
+type GenerationPreferences = {
+  alcohol: string;
+  caffeine: string;
+  temperature: string;
+  calories: string;
+  frugalMode: boolean;
+  independentDrinks: boolean;
+  ignoreInventory: boolean;
+  recommendationCount: number;
+  requiredIngredientIds: string[];
+};
 
 const defaultCategories: InventoryCategory[] = [
   { name: 'coffee', label_zh: '\u5496\u5561', label_en: 'Coffee' },
@@ -377,6 +388,7 @@ export function App() {
       saveFoodHint: 'Save note',
       resetFoodHint: 'Reset note',
       clearFoodLibrary: 'Clear food library',
+      quickGenerate: 'Quick generate',
       shareFoodLibrary: 'I agree to share this food to the public food library.',
       shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
       guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
@@ -410,6 +422,7 @@ export function App() {
       saveFoodHint: '\u4fdd\u5b58\u8bf4\u660e',
       resetFoodHint: '\u6062\u590d\u9ed8\u8ba4',
       clearFoodLibrary: '\u6e05\u7a7a\u98df\u54c1\u5e93',
+      quickGenerate: '\u5feb\u901f\u751f\u6210',
       shareFoodLibrary: '\u6211\u540c\u610f\u5c06\u8be5\u98df\u54c1\u5171\u4eab\u5230\u516c\u5f00\u98df\u54c1\u5e93\u3002',
       shareFoodLibraryHint: '\u82e5\u4e0d\u52fe\u9009\uff0c\u5219\u53ea\u51fa\u73b0\u5728\u4e2a\u4eba\u98df\u54c1\u5e93\u3002',
       guestDailyLimit: (count: string) => `\u672a\u767b\u5f55\u7528\u6237\u6bcf\u65e5\u53ef\u514d\u8d39\u751f\u6210${count}\u6b21`,
@@ -765,7 +778,10 @@ export function App() {
     saveInventory(next);
   }
 
-  async function generateRecommendations() {
+  async function generateRecommendations(overridePreferences?: Partial<GenerationPreferences>) {
+    const requestPreferences = { ...preferences, ...overridePreferences };
+    const requestIgnoreInventory = requestPreferences.ignoreInventory || (!overridePreferences && autoIgnoreInventory);
+    const requestFrugalMode = Boolean(requestPreferences.frugalMode && !requestIgnoreInventory && hasMeasurableInventory && !requestPreferences.independentDrinks);
     setLoading(true);
     setGenerationStatus(language === 'zh' ? '\u6b63\u5728\u9a8c\u8bc1\u8f93\u5165...' : 'Validating input...');
     try {
@@ -774,11 +790,11 @@ export function App() {
       const res = await fetch('/api/recommendations', {
         method: 'POST',
         headers: getUserAuthorizationHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ inventory: effectiveIgnoreInventory ? [] : inventory, preferences: {
-          ...preferences,
-          ignoreInventory: effectiveIgnoreInventory,
-          frugalMode: effectiveFrugalMode,
-          requiredIngredientIds: effectiveIgnoreInventory ? [] : preferences.requiredIngredientIds
+        body: JSON.stringify({ inventory: requestIgnoreInventory ? [] : inventory, preferences: {
+          ...requestPreferences,
+          ignoreInventory: requestIgnoreInventory,
+          frugalMode: requestFrugalMode,
+          requiredIngredientIds: requestIgnoreInventory ? [] : requestPreferences.requiredIngredientIds
         }, language, deviceId })
       });
       if (res.ok) {
@@ -804,6 +820,16 @@ export function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function quickGenerateRecommendations() {
+    return generateRecommendations({
+      ignoreInventory: true,
+      frugalMode: false,
+      independentDrinks: true,
+      recommendationCount: 3,
+      requiredIngredientIds: []
+    });
   }
 
   async function saveAsFavorite(rec: any) {
@@ -1370,24 +1396,29 @@ export function App() {
             </div>
           </div>
           <p className="inventory-help">{foodHintText}</p>
-          <div className="inline-form inventory-add-form">
-            <input
-              value={inventoryName}
-              onChange={e => setInventoryName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') addInventoryItem();
-              }}
-              placeholder={t.itemName}
-            />
-            <input
-              value={inventoryAmount}
-              onChange={e => setInventoryAmount(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') addInventoryItem();
-              }}
-              placeholder={t.volumePlaceholder}
-            />
-            <button onClick={addInventoryItem}>{t.add}</button>
+          <div className="inventory-action-row">
+            <button className="primary-action quick-generate-button desktop-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
+              {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+            </button>
+            <div className="inline-form inventory-add-form">
+              <input
+                value={inventoryName}
+                onChange={e => setInventoryName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') addInventoryItem();
+                }}
+                placeholder={t.itemName}
+              />
+              <input
+                value={inventoryAmount}
+                onChange={e => setInventoryAmount(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') addInventoryItem();
+                }}
+                placeholder={t.volumePlaceholder}
+              />
+              <button onClick={addInventoryItem}>{t.add}</button>
+            </div>
           </div>
           <label className="food-share-consent">
             <input type="checkbox" checked={shareFoodLibraryPublicly} onChange={e => setShareFoodLibraryPublicly(e.target.checked)} />
@@ -1396,6 +1427,10 @@ export function App() {
           </label>
         </section>
       </DndContext>
+
+      <button className="primary-action quick-generate-button mobile-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
+        {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+      </button>
 
       <div className="content-grid">
          <aside className="panel settings-panel">
@@ -1428,7 +1463,7 @@ export function App() {
                 <span>{language === 'en' ? 'Count' : '\u6570\u91cf'}</span>
                 <input type="number" value={preferences.recommendationCount} onChange={e => setPreferences({...preferences, recommendationCount: Number(e.target.value)})} />
               </label>
-              <button className="primary-action compact-generate-button" onClick={generateRecommendations} disabled={loading}>{loading ? '\u6b63\u5728\u751f\u6210...' : t.generate}</button>
+              <button className="primary-action compact-generate-button" onClick={() => generateRecommendations()} disabled={loading}>{loading ? '\u6b63\u5728\u751f\u6210...' : t.generate}</button>
             </div>
             {generationStatus && <div className="generation-status" role="status" aria-live="polite">{generationStatus}</div>}
          </aside>

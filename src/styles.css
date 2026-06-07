@@ -2712,6 +2712,26 @@ body {
   width: 100%;
 }
 
+.inventory-action-row {
+  display: grid;
+  grid-template-columns: minmax(132px, 170px) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  max-width: 780px;
+}
+
+.quick-generate-button {
+  margin-top: 0;
+  min-height: 34px;
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 0.88rem;
+}
+
+.mobile-quick-generate {
+  display: none;
+}
+
 @media (min-width: 701px) {
   .inventory-add-form input {
     flex: 1 1 0;
@@ -2774,6 +2794,23 @@ body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px;
+  }
+
+  .inventory-action-row {
+    display: block;
+    max-width: none;
+  }
+
+  .desktop-quick-generate {
+    display: none;
+  }
+
+  .mobile-quick-generate {
+    display: block;
+    width: calc(100% - 36px);
+    margin: 10px auto 14px;
+    min-height: 44px;
+    font-size: 1rem;
   }
 
   .inventory-add-form input,
