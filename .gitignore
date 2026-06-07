@@ -6,6 +6,8 @@ dist/
 dist-server/
 coverage/
 .vite/
+test-results/
+playwright-report/
 
 # Environment and secrets
 .env
