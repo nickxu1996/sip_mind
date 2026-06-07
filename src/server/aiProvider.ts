@@ -102,6 +102,41 @@ function isTransientAiError(message: string) {
   return /\b(429|500|502|503|504)\b|high demand|temporar|timeout|fetch|JSON|Expected ','|Unexpected token|unterminated/i.test(message);
 }
 
+export function simplifyAiErrorMessage(input: unknown) {
+  const message = input instanceof Error ? input.message : String(input ?? '');
+  const clean = message.replace(/\s+/g, ' ').trim();
+
+  if (/high demand/i.test(clean)) {
+    return 'Currently experiencing high demand. Please try again later.';
+  }
+
+  if (/\b(429|rate limit|too many requests)\b/i.test(clean)) {
+    return 'Too many requests. Please try again later.';
+  }
+
+  if (/\b(503|service unavailable)\b/i.test(clean)) {
+    return 'Service is temporarily unavailable. Please try again later.';
+  }
+
+  if (/\b(500|502|504)\b|temporar/i.test(clean)) {
+    return 'AI service is temporarily unavailable. Please try again later.';
+  }
+
+  if (/timeout|timed out/i.test(clean)) {
+    return 'AI request timed out. Please try again later.';
+  }
+
+  if (/invalid JSON|Expected|Unexpected token|unterminated|JSON/i.test(clean)) {
+    return 'AI returned an invalid response. Please try again.';
+  }
+
+  if (/not configured|GEMINI_API_KEY|API key/i.test(clean)) {
+    return 'AI provider is not configured.';
+  }
+
+  return 'AI generation failed. Please try again later.';
+}
+
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

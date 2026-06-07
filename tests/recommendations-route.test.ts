@@ -191,6 +191,55 @@ describe('recommendation generation route', () => {
     }
   });
 
+  it('returns a simplified AI provider error message', async () => {
+    const database = createDatabase(makeDbPath());
+    const userId = database.createUser({ username: 'ai-error-route-test', password: 'test' });
+    const token = database.createSession(userId);
+    const app = createApp(database, {
+      name: 'test-ai',
+      model: 'test-model',
+      async generateRecommendations() {
+        throw new Error('[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.');
+      }
+    });
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Server did not bind to a port');
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          inventory: [],
+          preferences: {
+            alcohol: 'any',
+            caffeine: 'any',
+            temperature: 'any',
+            calories: 'any',
+            frugalMode: false,
+            independentDrinks: true,
+            ignoreInventory: true,
+            requiredIngredientIds: [],
+            recommendationCount: '1'
+          },
+          language: 'en'
+        })
+      });
+
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body).toMatchObject({
+        error: 'AI_GENERATION_FAILED',
+        message: 'Currently experiencing high demand. Please try again later.'
+      });
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      database.db.close();
+    }
+  });
+
   it('enforces configurable global and per-user daily generation limits', async () => {
     const database = createDatabase(makeDbPath());
     const firstUserId = database.createUser({ username: 'limit-user-one', password: 'test' });

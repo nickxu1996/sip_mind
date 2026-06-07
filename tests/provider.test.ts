@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAiProvider, parseJsonResponse } from '../src/server/aiProvider';
+import { createAiProvider, parseJsonResponse, simplifyAiErrorMessage } from '../src/server/aiProvider';
 
 describe('AI provider selection', () => {
   it('uses Gemini first when a Gemini key is available', () => {
@@ -28,5 +28,17 @@ describe('AI JSON response parsing', () => {
     const parsed = parseJsonResponse('{"recommendations":[{"name":"Drink","ingredients":["Milk",],}]}');
 
     expect((parsed as any).recommendations[0].ingredients).toEqual(['Milk']);
+  });
+});
+
+describe('AI error message simplification', () => {
+  it('reduces Google high-demand errors to a short user-facing message', () => {
+    const raw = 'Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.';
+
+    expect(simplifyAiErrorMessage(new Error(raw))).toBe('Currently experiencing high demand. Please try again later.');
+  });
+
+  it('reduces invalid JSON errors to a short retry message', () => {
+    expect(simplifyAiErrorMessage(new Error("AI provider returned invalid JSON: Expected ',' or ']' after array element"))).toBe('AI returned an invalid response. Please try again.');
   });
 });

@@ -813,7 +813,7 @@ export function App() {
       } else {
         const data = await res.json().catch(() => null);
         console.error('Recommendation generation failed', { status: res.status, body: data });
-        setGenerationStatus(data?.message ? 'Error: ' + data.message : data?.error ? 'Error: ' + data.error : (language === 'zh' ? '\u9519\u8bef\uff1a\u751f\u6210\u5931\u8d25' : 'Error: generation failed'));
+        setGenerationStatus(data?.message ? data.message : data?.error ? String(data.error) : (language === 'zh' ? '\u751f\u6210\u5931\u8d25' : 'Generation failed'));
       }
     } catch (e) {
       console.error(e);
@@ -1004,7 +1004,7 @@ export function App() {
         setGenerationStatus(language === 'zh' ? '\u5b8c\u6210' : 'Done');
       } else {
         const data = await res.json().catch(() => null);
-        setGenerationStatus(data?.message ? `Error: ${data.message}` : data?.error ? `Error: ${data.error}` : (language === 'zh' ? '\u751f\u6210\u5931\u8d25' : 'Generation failed'));
+        setGenerationStatus(data?.message ? data.message : data?.error ? String(data.error) : (language === 'zh' ? '\u751f\u6210\u5931\u8d25' : 'Generation failed'));
       }
     } finally {
       setLoading(false);

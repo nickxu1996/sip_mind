@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import nodemailer from 'nodemailer';
 import { applyRemainingIngredientRules, buildRecommendationPrompt, normalizeRecommendationOutputs, validateRecommendationRequest } from './recommendation.js';
+import { simplifyAiErrorMessage } from './aiProvider.js';
 import type { createAiProvider } from './aiProvider.js';
 import type { createDatabase } from './storage.js';
 
@@ -348,8 +349,7 @@ export function createApp(db: DatabaseApi, ai: AiProvider, env: Record<string, s
       saveAndRespond(recommendations, ai.name);
     } catch (error) {
       console.error('[Sip Mind] Recommendation generation failed:', error);
-      const message = error instanceof Error ? error.message : 'Unknown AI error';
-      response.status(502).json({ error: 'AI_GENERATION_FAILED', message });
+      response.status(502).json({ error: 'AI_GENERATION_FAILED', message: simplifyAiErrorMessage(error) });
     }
   });
 
