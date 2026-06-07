@@ -390,6 +390,7 @@ export function App() {
       resetFoodHint: 'Reset note',
       clearFoodLibrary: 'Clear food library',
       quickGenerate: 'Quick generate',
+      quickGenerateHint: 'No setup needed. Click quick generate to try it.',
       shareFoodLibrary: 'I agree to share this food to the public food library.',
       shareFoodLibraryHint: '. If unchecked, it will only appear in your personal food library.',
       guestDailyLimit: (count: string) => `Guest users can generate ${count} free recommendations per day.`,
@@ -424,6 +425,7 @@ export function App() {
       resetFoodHint: '\u6062\u590d\u9ed8\u8ba4',
       clearFoodLibrary: '\u6e05\u7a7a\u98df\u54c1\u5e93',
       quickGenerate: '\u5feb\u901f\u751f\u6210',
+      quickGenerateHint: '\u65e0\u9700\u4efb\u4f55\u914d\u7f6e\uff0c\u70b9\u51fb\u5feb\u901f\u751f\u6210\u4f53\u9a8c\u5427~',
       shareFoodLibrary: '\u6211\u540c\u610f\u5c06\u8be5\u98df\u54c1\u5171\u4eab\u5230\u516c\u5f00\u98df\u54c1\u5e93\u3002',
       shareFoodLibraryHint: '\u82e5\u4e0d\u52fe\u9009\uff0c\u5219\u53ea\u51fa\u73b0\u5728\u4e2a\u4eba\u98df\u54c1\u5e93\u3002',
       guestDailyLimit: (count: string) => `\u672a\u767b\u5f55\u7528\u6237\u6bcf\u65e5\u53ef\u514d\u8d39\u751f\u6210${count}\u6b21`,
@@ -1334,9 +1336,12 @@ export function App() {
         </div>
       )}
 
-      <button className="primary-action quick-generate-button mobile-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
-        {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
-      </button>
+      <div className="quick-generate-block mobile-quick-generate">
+        <button className="primary-action quick-generate-button" onClick={quickGenerateRecommendations} disabled={loading}>
+          {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+        </button>
+        <small>{uiLabels.quickGenerateHint}</small>
+      </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <section className="inventory-strip">
@@ -1344,9 +1349,12 @@ export function App() {
             <div className="inventory-heading-main">
               <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '\uff08\u4e0d\u8bbe\u7f6e\u5e93\u5b58\u4e5f\u53ef\u4ee5\u968f\u673a\u751f\u6210\u54e6~\uff09'}</small></h2>
             </div>
-            <button className="primary-action quick-generate-button desktop-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
-              {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
-            </button>
+            <div className="quick-generate-block desktop-quick-generate">
+              <button className="primary-action quick-generate-button" onClick={quickGenerateRecommendations} disabled={loading}>
+                {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+              </button>
+              <small>{uiLabels.quickGenerateHint}</small>
+            </div>
             <div className="inventory-heading-side">
               <button className="text-button" onClick={clearInventory}>{t.clear}</button>
             </div>

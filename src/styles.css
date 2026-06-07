@@ -2737,6 +2737,19 @@ body {
   font-size: 0.88rem;
 }
 
+.quick-generate-block {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+}
+
+.quick-generate-block small {
+  color: #8a8a8a;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
 .mobile-quick-generate {
   display: none;
 }
@@ -2780,7 +2793,8 @@ body {
   .inventory-strip .desktop-quick-generate {
     justify-self: center;
     align-self: start;
-    max-width: 170px;
+    width: min(190px, 100%);
+    max-width: 190px;
   }
 
   .inventory-heading-side {
@@ -2867,8 +2881,15 @@ body {
     display: block;
     width: calc(100% - 36px);
     margin: 10px auto 14px;
+  }
+
+  .mobile-quick-generate .quick-generate-button {
     min-height: 44px;
     font-size: 1rem;
+  }
+
+  .mobile-quick-generate small {
+    font-size: 0.76rem;
   }
 
   .inventory-add-form input,
