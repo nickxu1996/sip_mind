@@ -1334,6 +1334,9 @@ export function App() {
               <h2><span className="section-index">1.</span>{t.inventory}<small className="inventory-random-note">{language === 'en' ? '(random generation works without inventory)' : '\uff08\u4e0d\u8bbe\u7f6e\u5e93\u5b58\u4e5f\u53ef\u4ee5\u968f\u673a\u751f\u6210\u54e6~\uff09'}</small></h2>
               <div className="guest-limit-note">{uiLabels.guestDailyLimit(guestDailyLimit)}</div>
             </div>
+            <button className="primary-action quick-generate-button desktop-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
+              {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+            </button>
             <div className="inventory-heading-side">
               <button className="text-button" onClick={clearInventory}>{t.clear}</button>
             </div>
@@ -1397,9 +1400,6 @@ export function App() {
           </div>
           <p className="inventory-help">{foodHintText}</p>
           <div className="inventory-action-row">
-            <button className="primary-action quick-generate-button desktop-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
-              {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
-            </button>
             <div className="inline-form inventory-add-form">
               <input
                 value={inventoryName}

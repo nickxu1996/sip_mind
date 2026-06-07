@@ -2713,11 +2713,8 @@ body {
 }
 
 .inventory-action-row {
-  display: grid;
-  grid-template-columns: minmax(132px, 170px) minmax(0, 1fr);
-  gap: 8px;
-  align-items: stretch;
-  max-width: 780px;
+  display: block;
+  max-width: 600px;
 }
 
 .quick-generate-button {
@@ -2733,6 +2730,55 @@ body {
 }
 
 @media (min-width: 701px) {
+  .inventory-strip .section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 170px) minmax(58px, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+
+  .inventory-heading-main {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .inventory-heading-main h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .inventory-random-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .guest-limit-note {
+    position: static;
+    transform: none;
+    margin-left: 2.55rem;
+    white-space: nowrap;
+    pointer-events: auto;
+  }
+
+  .inventory-strip .desktop-quick-generate {
+    justify-self: center;
+    align-self: start;
+    max-width: 170px;
+  }
+
+  .inventory-heading-side {
+    position: static;
+    transform: none;
+    justify-self: end;
+    min-width: 58px;
+    height: auto;
+  }
+
   .inventory-add-form input {
     flex: 1 1 0;
   }
