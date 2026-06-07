@@ -318,6 +318,7 @@ export function App() {
   });
   const [guestDailyLimit, setGuestDailyLimit] = useState('10');
   const inventoryLanesRef = useRef<HTMLDivElement | null>(null);
+  const generationAreaRef = useRef<HTMLDivElement | null>(null);
   const [inventoryLanesHeight, setInventoryLanesHeight] = useState(0);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -822,14 +823,17 @@ export function App() {
     }
   }
 
-  function quickGenerateRecommendations() {
-    return generateRecommendations({
+  async function quickGenerateRecommendations() {
+    const generationTask = generateRecommendations({
       ignoreInventory: true,
       frugalMode: false,
       independentDrinks: true,
       recommendationCount: 3,
       requiredIngredientIds: []
     });
+    await nextPaint();
+    generationAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'center' });
+    return generationTask;
   }
 
   async function saveAsFavorite(rec: any) {
@@ -1327,6 +1331,10 @@ export function App() {
         </div>
       )}
 
+      <button className="primary-action quick-generate-button mobile-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
+        {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
+      </button>
+
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <section className="inventory-strip">
           <div className="section-heading">
@@ -1428,11 +1436,7 @@ export function App() {
         </section>
       </DndContext>
 
-      <button className="primary-action quick-generate-button mobile-quick-generate" onClick={quickGenerateRecommendations} disabled={loading}>
-        {loading ? (language === 'en' ? 'Generating...' : '\u6b63\u5728\u751f\u6210...') : uiLabels.quickGenerate}
-      </button>
-
-      <div className="content-grid">
+      <div className="content-grid" ref={generationAreaRef}>
          <aside className="panel settings-panel">
             <div className="section-heading">
               <h2><span className="section-index">2.</span>{t.preferences}</h2>
