@@ -1370,9 +1370,23 @@ export function App() {
             </div>
           </div>
           <p className="inventory-help">{foodHintText}</p>
-          <div className="inline-form">
-            <input value={inventoryName} onChange={e => setInventoryName(e.target.value)} placeholder={t.itemName} />
-            <input value={inventoryAmount} onChange={e => setInventoryAmount(e.target.value)} placeholder={t.volumePlaceholder} />
+          <div className="inline-form inventory-add-form">
+            <input
+              value={inventoryName}
+              onChange={e => setInventoryName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') addInventoryItem();
+              }}
+              placeholder={t.itemName}
+            />
+            <input
+              value={inventoryAmount}
+              onChange={e => setInventoryAmount(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') addInventoryItem();
+              }}
+              placeholder={t.volumePlaceholder}
+            />
             <button onClick={addInventoryItem}>{t.add}</button>
           </div>
           <label className="food-share-consent">

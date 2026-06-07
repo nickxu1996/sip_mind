@@ -2646,3 +2646,143 @@ body {
     font-size: 0.78rem;
   }
 }
+
+/* Mobile and populated-card QA fixes. */
+.recommendation-card .recipe-section:first-of-type p {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  white-space: normal;
+}
+
+.recipe-tags {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  align-items: center;
+}
+
+.recipe-tags span,
+.text-tag {
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+.text-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.text-tag strong,
+.text-tag span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-tag strong {
+  flex: 0 0 auto;
+}
+
+.text-tag span {
+  flex: 1 1 auto;
+}
+
+.inventory-lanes,
+.food-library {
+  max-height: calc(37px * 8 + 4px * 7);
+  overflow-y: auto;
+}
+
+.food-library {
+  height: auto !important;
+}
+
+.food-library-body {
+  max-height: calc(37px * 8 - 44px);
+  overflow-y: auto;
+}
+
+.inventory-add-form {
+  width: 100%;
+}
+
+@media (min-width: 701px) {
+  .inventory-add-form input {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .top-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--sip-border);
+    border-radius: 8px;
+    background: #fffefa;
+  }
+
+  .top-bar-branding {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .top-bar-intro {
+    position: static;
+    grid-column: 2;
+    order: 0;
+    justify-self: auto;
+    align-self: center;
+    margin: 0;
+    color: #4f4a44;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    text-align: left;
+  }
+
+  .settings-bar {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .settings-bar button,
+  .language-toggle {
+    flex: 0 0 auto;
+  }
+
+  .inventory-lanes,
+  .food-library {
+    max-height: calc(44px * 8);
+  }
+
+  .inventory-add-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .inventory-add-form input,
+  .inventory-add-form button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .inventory-add-form button {
+    grid-column: 1 / -1;
+  }
+}
