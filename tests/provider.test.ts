@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAiProvider, parseJsonResponse, simplifyAiErrorMessage } from '../src/server/aiProvider';
+import { createAiProvider, getAiRetryDelayMs, parseJsonResponse, shouldRetryAiError, simplifyAiErrorMessage } from '../src/server/aiProvider';
 
 describe('AI provider selection', () => {
   it('uses Gemini first when a Gemini key is available', () => {
@@ -40,5 +40,17 @@ describe('AI error message simplification', () => {
 
   it('reduces invalid JSON errors to a short retry message', () => {
     expect(simplifyAiErrorMessage(new Error("AI provider returned invalid JSON: Expected ',' or ']' after array element"))).toBe('AI returned an invalid response. Please try again.');
+  });
+});
+
+describe('AI provider retry rules', () => {
+  it('retries high-demand errors three times with a 3 second delay', () => {
+    const message = 'This model is currently experiencing high demand. Please try again later.';
+
+    expect(shouldRetryAiError(message, 0)).toBe(true);
+    expect(shouldRetryAiError(message, 1)).toBe(true);
+    expect(shouldRetryAiError(message, 2)).toBe(true);
+    expect(shouldRetryAiError(message, 3)).toBe(false);
+    expect(getAiRetryDelayMs(message, 1)).toBe(3000);
   });
 });

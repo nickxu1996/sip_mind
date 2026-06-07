@@ -6,6 +6,10 @@ export type AiProvider = {
   generateRecommendations: (prompt: string) => Promise<unknown>;
 };
 
+const HIGH_DEMAND_RETRY_DELAY_MS = 3000;
+const HIGH_DEMAND_RETRY_COUNT = 3;
+const DEFAULT_TRANSIENT_RETRY_COUNT = 2;
+
 export function createAiProvider(env: Record<string, string | undefined>): AiProvider {
   const geminiKey = env.GEMINI_API_KEY;
   const preferredProvider = env.AI_PROVIDER;
@@ -25,8 +29,9 @@ export function createAiProvider(env: Record<string, string | undefined>): AiPro
       async generateRecommendations(prompt: string) {
         let lastError: unknown;
         let activePrompt = prompt;
+        let completedRetries = 0;
 
-        for (let attempt = 0; attempt < 3; attempt += 1) {
+        while (true) {
           try {
             const result = await model.generateContent(activePrompt);
             const responseText = result.response.text();
@@ -34,7 +39,7 @@ export function createAiProvider(env: Record<string, string | undefined>): AiPro
           } catch (error) {
             lastError = error;
             const message = error instanceof Error ? error.message : String(error);
-            if (!isTransientAiError(message) || attempt === 2) {
+            if (!shouldRetryAiError(message, completedRetries)) {
               throw new Error(message.includes('JSON') || message.includes('Expected')
                 ? `AI provider returned invalid JSON: ${message}`
                 : message);
@@ -42,7 +47,8 @@ export function createAiProvider(env: Record<string, string | undefined>): AiPro
             if (message.includes('JSON') || message.includes('Expected') || message.includes('Unexpected')) {
               activePrompt = `${prompt}\n\nYour previous response was invalid JSON. Regenerate the full response from scratch. Return only a single valid JSON object. Use double quotes for every string, include commas between all array items and object properties, and do not include markdown or comments.`;
             }
-            await delay(800 * (attempt + 1));
+            completedRetries += 1;
+            await delay(getAiRetryDelayMs(message, completedRetries));
           }
         }
 
@@ -100,6 +106,21 @@ function repairCommonJsonIssues(input: string) {
 
 function isTransientAiError(message: string) {
   return /\b(429|500|502|503|504)\b|high demand|temporar|timeout|fetch|JSON|Expected ','|Unexpected token|unterminated/i.test(message);
+}
+
+export function isHighDemandAiError(message: string) {
+  return /high demand/i.test(message);
+}
+
+export function shouldRetryAiError(message: string, completedRetries: number) {
+  if (!isTransientAiError(message)) return false;
+  const retryLimit = isHighDemandAiError(message) ? HIGH_DEMAND_RETRY_COUNT : DEFAULT_TRANSIENT_RETRY_COUNT;
+  return completedRetries < retryLimit;
+}
+
+export function getAiRetryDelayMs(message: string, retryNumber: number) {
+  if (isHighDemandAiError(message)) return HIGH_DEMAND_RETRY_DELAY_MS;
+  return 800 * retryNumber;
 }
 
 export function simplifyAiErrorMessage(input: unknown) {
